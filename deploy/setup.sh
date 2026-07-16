@@ -22,6 +22,17 @@ echo "==> Устанавливаю системные пакеты…"
 sudo apt-get update -y
 sudo apt-get install -y python3 python3-venv python3-pip curl ca-certificates
 
+# 1b. Swap для маломощных серверов (Chromium прожорлив; 2ГБ swap если RAM < 3ГБ)
+MEM_MB="$(free -m | awk '/^Mem:/{print $2}')"
+if [ "${MEM_MB:-9999}" -lt 3000 ] && [ -z "$(swapon --show)" ]; then
+  echo "==> RAM ${MEM_MB} МБ — создаю 2 ГБ swap (иначе Chromium может упасть по памяти)…"
+  sudo fallocate -l 2G /swapfile 2>/dev/null || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
+  sudo chmod 600 /swapfile
+  sudo mkswap /swapfile
+  sudo swapon /swapfile
+  grep -q '/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
+fi
+
 # 2. Node.js (нужен для деплоя на Vercel через npx)
 if ! command -v node >/dev/null 2>&1; then
   echo "==> Ставлю Node.js 20…"
