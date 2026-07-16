@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CityPulse — социальный слух для городов</title>
+<meta name="description" content="CityPulse слушает голос горожан в соцсетях и превращает его в приоритизированные задачи для администрации. Откройте живые дашборды.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+ --indigo:#4f46e5;--indigo2:#6366f1;--sky:#0ea5e9;
+ --ink:#0f1b34;--ink2:#4a5a78;--ink3:#8a98b3;
+ --bg:#ffffff;--soft:#f5f8fd;--line:#e6ecf6;
+ --rose:#e11d48;--green:#16a34a;--amber:#f59e0b;
+ --sans:'Inter',system-ui,sans-serif;--disp:'Manrope',var(--sans);
+ --sh:0 1px 2px rgba(16,30,60,.05),0 10px 30px rgba(16,30,60,.07);
+ --sh2:0 2px 8px rgba(16,30,60,.07),0 24px 60px rgba(16,30,60,.13);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:var(--sans);color:var(--ink);background:var(--bg);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.02em;margin:0;line-height:1.14}
+p{margin:0}a{color:inherit;text-decoration:none}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+.btn{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:15px;border-radius:12px;padding:13px 22px;cursor:pointer;border:1px solid transparent;transition:.18s;font-family:var(--sans)}
+.btn-primary{background:linear-gradient(135deg,var(--indigo),var(--sky));color:#fff;box-shadow:0 8px 22px rgba(79,70,229,.3)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(79,70,229,.4)}
+.btn-light{background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.26)}
+.btn-light:hover{background:rgba(255,255,255,.2)}
+.btn-ghost{background:#fff;border-color:var(--line);color:var(--ink)}
+.btn-ghost:hover{border-color:var(--indigo);color:var(--indigo)}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;
+ color:#bcd0ff;background:rgba(79,70,229,.22);border:1px solid rgba(120,140,255,.35);padding:7px 14px;border-radius:30px}
+.dot{width:7px;height:7px;border-radius:50%;background:#34d399;box-shadow:0 0 0 0 rgba(52,211,153,.5);animation:pulse 1.8s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,211,153,.45)}70%{box-shadow:0 0 0 7px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+
+/* NAV */
+.nav{position:sticky;top:0;z-index:50;background:rgba(15,27,52,.7);backdrop-filter:blur(14px);border-bottom:1px solid rgba(255,255,255,.08)}
+.nav .wrap{display:flex;align-items:center;height:64px}
+.logo{display:flex;align-items:center;gap:11px;font-family:var(--disp);font-weight:800;font-size:19px;color:#fff}
+.logo .mark{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#fff;font-size:18px;
+ background:linear-gradient(135deg,var(--indigo),var(--sky))}
+.nav .btn{margin-left:auto;padding:10px 18px;font-size:14px}
+
+/* HERO */
+.hero{position:relative;overflow:hidden;color:#fff;
+ background:radial-gradient(900px 500px at 85% -10%,rgba(79,70,229,.5),transparent 60%),
+  radial-gradient(800px 500px at 0% 10%,rgba(14,165,233,.38),transparent 55%),
+  linear-gradient(135deg,#101c38,#1a2550 60%,#101c38)}
+.hero .wrap{text-align:center;padding:66px 24px 78px;max-width:840px}
+.hero h1{font-size:48px;margin:22px 0 18px;letter-spacing:-.03em}
+.hero h1 .grad{background:linear-gradient(90deg,#a5b4fc,#7dd3fc);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .lead{font-size:19px;color:#c7d3ea;max-width:600px;margin:0 auto}
+.hero .cta{display:flex;gap:14px;justify-content:center;margin:30px 0 0;flex-wrap:wrap}
+.minifeat{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:34px}
+.minifeat span{font-size:13.5px;font-weight:600;color:#dbe5f7;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:30px;padding:8px 15px}
+@media(max-width:600px){.hero h1{font-size:34px}}
+
+/* DASHBOARDS */
+.dash{padding:72px 0 40px}
+.dash .head{text-align:center;max-width:620px;margin:0 auto 42px}
+.dash .head h2{font-size:32px;margin-bottom:10px}
+.dash .head p{color:var(--ink2);font-size:17px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+@media(max-width:780px){.cards{grid-template-columns:1fr}}
+.dcard{background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:var(--sh);transition:.2s;display:flex;flex-direction:column}
+.dcard:hover{transform:translateY(-4px);box-shadow:var(--sh2);border-color:#d4dcec}
+.dcard .top{position:relative;height:150px;padding:16px;display:flex;align-items:flex-end;
+ background:radial-gradient(500px 240px at 80% -20%,rgba(79,70,229,.5),transparent 60%),linear-gradient(135deg,#101c38,#1c2a52)}
+.dcard .top .badge{position:absolute;top:14px;left:16px;display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;color:#cffae3;
+ background:rgba(22,163,74,.25);border:1px solid rgba(52,211,153,.4);border-radius:30px;padding:5px 11px}
+.dcard .top .badge.soon{color:#dbe5f7;background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2)}
+.dcard .miniwrap{display:flex;gap:6px;width:100%;align-items:flex-end;height:62px}
+.dcard .miniwrap i{flex:1;border-radius:4px 4px 0 0;background:linear-gradient(180deg,var(--sky),var(--indigo2));opacity:.85}
+.dcard .body{padding:20px 22px 22px;display:flex;flex-direction:column;flex:1}
+.dcard h3{font-size:19px;margin-bottom:7px}
+.dcard p{color:var(--ink2);font-size:14.5px;margin-bottom:16px}
+.dcard .meta{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
+.dcard .pill{font-size:12px;font-weight:600;color:var(--ink2);background:var(--soft);border:1px solid var(--line);border-radius:30px;padding:4px 11px}
+.dcard .btn{margin-top:auto;width:100%;justify-content:center}
+
+/* FOOTER */
+.foot{border-top:1px solid var(--line);padding:30px 0;color:var(--ink3);font-size:14px;margin-top:40px}
+.foot .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center}
+.foot .logo{color:var(--ink);font-size:16px}
+.foot .logo .mark{width:28px;height:28px;font-size:15px;border-radius:8px}
+.foot a{color:var(--ink2)}.foot a:hover{color:var(--indigo)}
+</style>
+</head>
+<body>
+
+<nav class="nav"><div class="wrap">
+  <a class="logo" href="#top"><span class="mark">◎</span>CityPulse</a>
+  <a class="btn btn-primary" href="#dashboards">Открыть дашборд</a>
+</div></nav>
+
+<header class="hero" id="top"><div class="wrap">
+  <span class="eyebrow"><span class="dot"></span> Социальный слух для городов</span>
+  <h1>Слышим город.<br><span class="grad">Действуем на опережение.</span></h1>
+  <p class="lead">CityPulse собирает голос горожан в социальных сетях, проверяет его на собственном ИИ и превращает в приоритизированные задачи для администрации.</p>
+  <div class="cta">
+    <a class="btn btn-primary" href="#dashboards">Открыть дашборды →</a>
+    <a class="btn btn-light" href="mailto:hello@citypulse.kz?subject=Запрос%20демо%20CityPulse">Запросить демо</a>
+  </div>
+  <div class="minifeat">
+    <span>📡 Сбор 24/7</span>
+    <span>🧠 Суверенный ИИ</span>
+    <span>🚨 Сигналы тревоги</span>
+    <span>🗺️ Карта по районам</span>
+    <span>🔒 Данные в вашем периметре</span>
+  </div>
+</div></header>
+
+<section class="dash" id="dashboards"><div class="wrap">
+  <div class="head">
+    <h2>Наши дашборды</h2>
+    <p>Живая аналитика городских обращений. Откройте, чтобы посмотреть платформу в работе.</p>
+  </div>
+  <div class="cards">
+    <a class="dcard" href="https://public-jade-one-29.vercel.app" target="_blank">
+      <div class="top">
+        <span class="badge"><span class="dot"></span> LIVE</span>
+        <div class="miniwrap"><i style="height:88%"></i><i style="height:64%"></i><i style="height:46%"></i><i style="height:72%"></i><i style="height:38%"></i><i style="height:58%"></i><i style="height:30%"></i><i style="height:50%"></i></div>
+      </div>
+      <div class="body">
+        <h3>Алматы · городские обращения</h3>
+        <p>Мониторинг соцсетей, сигналы тревоги, карта по районам, индексы настроения и напряжённости.</p>
+        <div class="meta"><span class="pill">Threads</span><span class="pill">Facebook</span><span class="pill">Instagram</span></div>
+        <span class="btn btn-primary">Открыть дашборд →</span>
+      </div>
+    </a>
+    <a class="dcard" href="mailto:hello@citypulse.kz?subject=Подключить%20город%20к%20CityPulse">
+      <div class="top">
+        <span class="badge soon">Ваш город</span>
+        <div class="miniwrap" style="opacity:.4"><i style="height:40%"></i><i style="height:55%"></i><i style="height:35%"></i><i style="height:60%"></i><i style="height:48%"></i><i style="height:30%"></i><i style="height:52%"></i><i style="height:42%"></i></div>
+      </div>
+      <div class="body">
+        <h3>Подключить свой город</h3>
+        <p>Запустим CityPulse для вашей администрации — с вашими источниками и под ваши районы.</p>
+        <div class="meta"><span class="pill">Пилот за 2 недели</span><span class="pill">On-premise ИИ</span></div>
+        <span class="btn btn-ghost">Запросить подключение →</span>
+      </div>
+    </a>
+  </div>
+</div></section>
+
+<footer class="foot"><div class="wrap">
+  <a class="logo" href="#top"><span class="mark">◎</span>CityPulse</a>
+  <div style="display:flex;gap:22px;flex-wrap:wrap;align-items:center">
+    <a href="https://public-jade-one-29.vercel.app" target="_blank">Живой дашборд</a>
+    <a href="mailto:hello@citypulse.kz">hello@citypulse.kz</a>
+    <span>© 2026 CityPulse</span>
+  </div>
+</div></footer>
+
+</body>
+</html>

@@ -1,0 +1,44 @@
+# ── СЕКРЕТЫ (никогда не коммитить) ──
+.env
+.env.*
+auth_state.json
+*cookie*.json
+.vercel/
+
+# ── Окружения / зависимости ──
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+node_modules/
+slide_build/node_modules/
+
+# ── Тяжёлые входные данные и персональные данные (не в git) ──
+data/
+output/
+logs/
+
+# ── Артефакты сборки (генерируются) ──
+public/index.html
+public/ump.html
+*.pptx
+design_concept_*.png
+Almaty_*.png
+Almaty_*.pptx
+
+# ── Дебаг-дампы и временные выводы ──
+graphql_response_*.json
+response_debug.json
+response_tag.html
+run_output.txt
+test_output.txt
+test_search_output.txt
+media/ss
+
+# ── Прочее ──
+.DS_Store
+Thumbs.db
+*.log
+lastscript.js
+_bp.txt
