@@ -339,7 +339,7 @@ html[data-theme="dark"] .gsearch:focus{background:var(--surface)}
 .ov-head{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px}
 .ov-head h2{font-size:22px}
 .ov-rail{display:flex;flex-direction:column;gap:16px;position:sticky;top:74px}
-.ov-mapcard #rmap{height:232px;border-radius:12px;overflow:hidden;margin-top:6px}
+.ov-mapcard #rmap{height:320px;border-radius:12px;overflow:hidden;margin-top:6px}
 .ov-index{display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:12.5px;color:var(--ink3)}
 .ov-index b{font-family:var(--disp);font-size:16px;color:var(--rose)}
 @media(max-width:760px){.sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);transition:.25s;box-shadow:var(--sh2)}.sidebar.open{transform:none}.sb-toggle{display:grid;place-items:center}.content{padding:56px 14px 40px}.topbar .gsearch{display:none}}
@@ -617,6 +617,21 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
       <div class="card"><div style="display:flex;align-items:center;gap:8px"><h3 style="margin:0">Очередь задач</h3>
         <button class="btn" style="margin-left:auto" onclick="if(window.showPage)showPage('actions')">Все →</button></div>
         <div class="nsteps">${nsteps}</div></div>
+    </div>
+    <div class="card" style="margin-top:16px"><h3>📅 Хроника: что волновало город</h3>
+      <div class="tiny" style="margin-bottom:4px">заметные дни за период · вероятная причина всплеска — самый резонансный пост дня (реконструкция по источнику, не проверенная новость)</div>
+      ${(()=>{const rows=(D.chronicle||[]).map(c=>{
+        const dt=c.date.split('-'),dd=`${dt[2]}.${dt[1]}`;
+        const sig=c.signature||{},snippet=(sig.text||'').slice(0,110);
+        const link=sig.url?`<a href="${esc(sig.url)}" target="_blank" rel="noopener" class="tiny" style="color:var(--indigo);font-weight:600">источник →</a>`:'';
+        return `<div style="display:flex;gap:12px;padding:10px 0;border-top:1px solid var(--line)">
+          <div style="width:64px;flex:none"><b style="font-size:13px">${esc(dd)}</b><div class="tiny">${esc(c.weekday)}</div></div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px"><span class="pill ind">${esc(c.category)}</span><span class="tiny">${c.count} обращений в этот день</span></div>
+            <div class="tiny" style="color:var(--ink2)">${esc(snippet)}${snippet.length>=110?'…':''}</div>
+            ${link}
+          </div></div>`;}).join('');
+        return rows||'<div class="tiny" style="opacity:.6;padding:10px 0">пока недостаточно данных для хроники</div>';})()}
     </div>
    </div>
    <aside class="ov-rail">
