@@ -617,14 +617,20 @@ def build(posts, all_feed, stats):
     n_posts = max(len(posts), 1)
     sev5_ratio = sum(1 for p in posts if p.get("severity") == 5) / n_posts  # пожары/ЧП/гибели
     sev4_ratio = sum(1 for p in posts if p.get("severity") == 4) / n_posts  # отключения/нападения
-    n_growing   = sum(1 for p in problems if p["trend"] > 0)    # растущих категорий
-    n_escalating = sum(1 for p in problems if p["trend"] > 2)   # быстро эскалирующих
+
+    # При разреженных данных (мало постов/день на категорию) сырой счётчик "растущих"
+    # категорий — шум: скачок с 0 до 1-2 постов задевает почти все категории разом.
+    # Поэтому считаем ДОЛЮ растущих/эскалирующих среди категорий с заметным объёмом (>=5 постов).
+    sig_cats = [p for p in problems if p["count"] >= 5]
+    n_sig = max(len(sig_cats), 1)
+    growth_share    = sum(1 for p in sig_cats if p["trend"] > 0) / n_sig
+    escalate_share  = sum(1 for p in sig_cats if p["trend"] > 2) / n_sig
 
     tension = min(100, round(
-        sev5_ratio  * 90 +   # ЧП/гибели/пожары — главный драйвер
-        sev4_ratio  * 45 +   # серьёзные инциденты
-        n_growing   *  2 +   # каждая растущая тема +2
-        n_escalating * 4     # каждая быстро растущая +4 (дополнительно)
+        sev5_ratio     * 70 +   # ЧП/гибели/пожары — главный драйвер
+        sev4_ratio     * 35 +   # серьёзные инциденты
+        growth_share   * 15 +   # доля растущих тем (не сырой счётчик)
+        escalate_share * 15     # доля быстро эскалирующих тем
     ))
     tlabel = ("Низкая напряжённость" if tension < 30 else "Умеренная напряжённость"
               if tension < 55 else "Повышенная напряжённость" if tension < 78 else "Высокая напряжённость")
@@ -652,6 +658,21 @@ def build(posts, all_feed, stats):
             iso = d.isocalendar()
             weeks[f"{iso[0]}-W{iso[1]:02d}"] += 1
     timeline = [{"week": k, "count": v} for k, v in sorted(weeks.items())]
+
+    # ── Темы по дням недели: что волновало горожан чаще в конкретный день ───────
+    WEEKDAY_NAMES = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+    weekday_cats = defaultdict(Counter)
+    for p in posts:
+        d = parse_dt(p["created_at"])
+        if d and p["category"] != "Прочее":
+            weekday_cats[d.weekday()][p["category"]] += 1
+    weekday_topics = [
+        {
+            "day": WEEKDAY_NAMES[wd],
+            "top": [{"category": c, "count": n} for c, n in weekday_cats[wd].most_common(3)],
+        }
+        for wd in range(7)
+    ]
 
     platforms = []
     for plat in ("Facebook", "Instagram", "Threads"):
@@ -732,7 +753,7 @@ def build(posts, all_feed, stats):
         "positive_posts": positive_posts,
         "tension": {"value": tension, "label": tlabel},
         "senti_by_cat": senti_by_cat, "triggers": triggers, "negwords": negwords,
-        "districts": dist_rows, "timeline": timeline,
+        "districts": dist_rows, "timeline": timeline, "weekday_topics": weekday_topics,
         "platforms": platforms, "langs": langs, "tiers": tiers,
         "top_posts": [sample(p) for p in top_posts],
         **_dedup_post_lists(all_sorted, feed_sorted, missing_sorted),
