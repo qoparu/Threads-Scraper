@@ -222,11 +222,15 @@ EXTRACT_JS = r"""() => {
         if (s == null) return null;
         let t = String(s).trim().toLowerCase().replace(/\s+/g, '');
         if (!/^[\d.,]+(k|к|m|м|тыс|млн)?\.?$/.test(t)) return null;
+        const hasUnit = /(k|к|m|м|тыс|млн)/.test(t);
         let mult = 1;
         if (/(^|[\d])(k|к|тыс)/.test(t)) mult = 1000;
         if (/(^|[\d])(m|м|млн)/.test(t)) mult = 1000000;
         const num = parseFloat(t.replace(',', '.').replace(/[^\d.]/g, ''));
         if (isNaN(num)) return null;
+        // Без суффикса Threads всегда показывает голое число < 100 000 (иначе сокращает до "K"/"M").
+        // Более длинные "голые" числа — не счётчики (обрывки ID/дат/текста), это шум — отбрасываем.
+        if (!hasUnit && num >= 100000) return null;
         return Math.round(num * mult);
     };
     const isCount = (s) => parseNum(s) !== null;
