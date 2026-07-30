@@ -850,8 +850,14 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
 
 /* 11. ДИНАМИКА + СТРУКТУРА */
 (function(){const b=sec(11,'Динамика и структура','объём по неделям · доли категорий','analytics');
+ const wdCard=(D.weekday_topics||[]).map(w=>`<div class="card" style="padding:10px 12px">
+    <div class="tiny" style="font-weight:700;margin-bottom:6px">${esc(w.day)}</div>
+    ${w.top.length?w.top.map(t=>`<div class="tiny" style="display:flex;justify-content:space-between;gap:8px;margin:2px 0"><span>${esc(t.category)}</span><b>${fmt(t.count)}</b></div>`).join(''):'<div class="tiny" style="opacity:.5">нет данных</div>'}
+  </div>`).join('');
  b.innerHTML=`<div class="grid g2"><div class="card"><h3>Динамика обращений по неделям</h3><canvas id="tl" height="150"></canvas></div>
-   <div class="card"><h3>Распределение по категориям</h3><canvas id="ct" height="150"></canvas></div></div>`;
+   <div class="card"><h3>Распределение по категориям</h3><canvas id="ct" height="150"></canvas></div></div>
+   <div class="card" style="margin-top:14px"><h3>Темы по дням недели</h3><div class="tiny" style="margin-bottom:8px">топ-3 категории по объёму обращений в этот день недели, за весь период</div>
+     <div class="grid" style="grid-template-columns:repeat(7,1fr);gap:8px">${wdCard}</div></div>`;
  setTimeout(()=>{const _cs=getComputedStyle(document.documentElement),cv=n=>_cs.getPropertyValue(n).trim();
   Chart.defaults.color=cv('--ink2')||'#5c6b86';Chart.defaults.borderColor=cv('--line')||'#e9edf6';Chart.defaults.font.family='Inter';
   const ind=cv('--indigo')||'#6366f1';
