@@ -148,9 +148,10 @@ def apply_live_grok(posts: list) -> list:
         log.info("Live Grok disabled by ENABLE_LIVE_GROK")
         return posts
 
-    api_key = (os.getenv("GROQ_API_KEY") or os.getenv("GROK_API_KEY") or "").strip()
+    api_key = (os.getenv("LLM_API_KEY") or os.getenv("DEEPSEEK_API_KEY")
+               or os.getenv("GROQ_API_KEY") or os.getenv("GROK_API_KEY") or "").strip()
     if not api_key:
-        log.warning("No GROQ_API_KEY/GROK_API_KEY — live Threads remain unverified")
+        log.warning("No LLM_API_KEY — live Threads remain unverified")
         return posts
 
     try:

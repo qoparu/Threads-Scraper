@@ -223,19 +223,49 @@ def run() -> tuple:
         launch_kw["executable_path"] = exe
 
     with sync_playwright() as pw:
-        try:
-            browser, ctx = am._build_context(pw, launch_kw)
-        except RuntimeError as e:
-            log.error(str(e))
-            return [], {}, 0
-        page = ctx.new_page()
+        session = {}
 
-        try:
-            page.goto("https://www.threads.com/", wait_until="domcontentloaded", timeout=20000)
-            page.wait_for_timeout(2000)
-            log.info("Session ready")
-        except Exception as e:
-            log.warning(f"Warmup: {e}")
+        def _open_session():
+            """(Пере)создаёт browser/ctx/page. Закрывает предыдущую сессию, если была жива."""
+            old_browser = session.get("browser")
+            if old_browser is not None:
+                try:
+                    old_browser.close()
+                except Exception:
+                    pass
+            browser = ctx = None
+            try:
+                browser, ctx = am._build_context(pw, launch_kw)
+            except RuntimeError as e:
+                log.error(str(e))
+                session.clear()
+                return None
+            page = ctx.new_page()
+            try:
+                page.goto("https://www.threads.com/", wait_until="domcontentloaded", timeout=20000)
+                page.wait_for_timeout(2000)
+                log.info("Session ready")
+            except Exception as e:
+                log.warning(f"Warmup: {e}")
+            session.update(browser=browser, ctx=ctx, page=page)
+            return page
+
+        if _open_session() is None:
+            return [], {}, 0
+
+        def _run_step(fn, *args, **kwargs):
+            """Запускает шаг скрапинга; при падении браузера пересоздаёт сессию
+            и пропускает этот источник — чтобы одно упавшее ключевое слово/тег
+            не обрывало весь часовой прогон (было: TargetClosedError убивал run())."""
+            try:
+                fn(session["page"], *args, **kwargs)
+                return True
+            except Exception as e:
+                log.error(f"Источник упал ({e.__class__.__name__}: {e}) — пересоздаю браузер и продолжаю")
+                if _open_session() is None:
+                    log.error("Не удалось пересоздать браузерную сессию — прекращаю сбор")
+                    return False
+                return True
 
         # ════════════════════════════════════════════════════════════════
         # ФАЗА 0: TOP-посты (default sort = по вовлечённости) — С НАЧАЛА ГОДА
@@ -249,8 +279,9 @@ def run() -> tuple:
         am.END_DATE   = NOW
 
         for kw in KEYWORDS_TOP:
-            am.scrape_search(page, kw, collected, stats,
-                             scroll_limit=SCROLL_MAX, click_recent=False)
+            if not _run_step(am.scrape_search, kw, collected, stats,
+                             scroll_limit=SCROLL_MAX, click_recent=False):
+                break
             time.sleep(2)
             # Чекпоинт внутри фазы 0 — сразу стримим накопленное на Vercel
             fire_deploy(collected, blocking=False)
@@ -269,20 +300,26 @@ def run() -> tuple:
         am.END_DATE   = NOW
 
         for i, kw in enumerate(KEYWORDS_RECENT, 1):
-            am.scrape_search(page, kw, collected, stats,
-                             scroll_limit=SCROLL_MAX, click_recent=True)
+            if not _run_step(am.scrape_search, kw, collected, stats,
+                             scroll_limit=SCROLL_MAX, click_recent=True):
+                break
             time.sleep(2)
             # Чекпоинт: каждые DEPLOY_EVERY_SOURCES источников
             if i % DEPLOY_EVERY_SOURCES == 0:
                 fire_deploy(collected, blocking=False)
 
         for i, tag in enumerate(TAGS_RECENT, 1):
-            am.scrape_tag(page, tag, collected, stats, scroll_limit=SCROLL_MAX)
+            if not _run_step(am.scrape_tag, tag, collected, stats, scroll_limit=SCROLL_MAX):
+                break
             time.sleep(2)
             if i % DEPLOY_EVERY_SOURCES == 0:
                 fire_deploy(collected, blocking=False)
 
-        browser.close()
+        if session.get("browser") is not None:
+            try:
+                session["browser"].close()
+            except Exception:
+                pass
 
     results = _current_results(collected)
     total_unique = len(collected)

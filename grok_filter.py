@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
 """
-grok_filter.py — Жёсткая фильтрация и классификация постов через xAI Grok.
+grok_filter.py — Жёсткая фильтрация и классификация постов через LLM
+(любой OpenAI-совместимый провайдер — DeepSeek, Groq, локальный vLLM).
 
-Заменяет старую фильтрацию по ключевым словам. Для каждого поста Grok решает:
+Заменяет старую фильтрацию по ключевым словам. Для каждого поста модель решает:
   • относится ли пост к ГОРОДСКИМ ПРОБЛЕМАМ Алматы, важным акимату;
   • это спам/реклама/флуд/оффтоп — или реальный сигнал;
   • категория, тема, острота, район, краткая суть для чиновника.
 
 Использование:
-    GROK_API_KEY=xai-... в Threads-Scraper/.env
+    LLM_API_KEY=sk-...            в Threads-Scraper/.env
+    LLM_BASE_URL=https://api.deepseek.com/v1
+    LLM_MODEL=deepseek-chat
     python grok_filter.py  output/almaty_threads_XXXX.json
 
 Результат: data/classified.json  (исходные посты + поле grok с классификацией).
 Кэш по id поста, чтобы не платить за повторные вызовы.
+Названия grok_cache.json/grok_done — историческое (первый провайдер был Grok),
+поле хранит результат ЛЮБОГО настроенного через LLM_BASE_URL провайдера.
 """
 
 import os
@@ -34,14 +39,17 @@ log = logging.getLogger("grok_filter")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s",
                     datefmt="%H:%M:%S", stream=sys.stdout)
 
-# Провайдер LLM — OpenAI-совместимый эндпоинт (Groq / vLLM / любой).
-# Локальный сервер: LLM_BASE_URL=http://10.100.200.199:2000/v1 в .env
-# Groq: LLM_BASE_URL=https://api.groq.com/openai/v1 (по умолчанию)
+# Провайдер LLM — OpenAI-совместимый эндпоинт (DeepSeek / Groq / vLLM / любой).
+# DeepSeek:  LLM_BASE_URL=https://api.deepseek.com/v1  LLM_MODEL=deepseek-chat
+# Groq:      LLM_BASE_URL=https://api.groq.com/openai/v1  LLM_MODEL=llama-3.3-70b-versatile
+# Локальный: LLM_BASE_URL=http://10.100.200.199:2000/v1
 API_BASE = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1")
 API_URL = API_BASE.rstrip("/") + "/chat/completions"
 MODEL = os.getenv("LLM_MODEL", os.getenv("GROK_MODEL", "llama-3.3-70b-versatile"))
-# API-ключ: для локального vLLM достаточно "local" или любой строки
-API_KEY_ENV = os.getenv("GROQ_API_KEY") or os.getenv("GROK_API_KEY", "local")
+# API-ключ: LLM_API_KEY — основное имя; GROQ_API_KEY/GROK_API_KEY — для обратной совместимости.
+# Для локального vLLM достаточно "local" или любой строки.
+API_KEY_ENV = (os.getenv("LLM_API_KEY") or os.getenv("DEEPSEEK_API_KEY")
+               or os.getenv("GROQ_API_KEY") or os.getenv("GROK_API_KEY", "local"))
 _IS_LOCAL = "localhost" in API_BASE or "127.0.0.1" in API_BASE or "10." in API_BASE
 BATCH_SIZE = 8 if _IS_LOCAL else 12   # меньше батч для локальной модели (32k ctx)
 HERE = Path(__file__).parent
@@ -235,7 +243,7 @@ def classify_batch(batch: List[dict], api_key: str, system_prompt: str, retries:
         except requests.HTTPError as e:
             log.error(f"  HTTP {r.status_code}: {r.text[:300]}")
             if r.status_code in (401, 403):
-                raise SystemExit("Grok API: ключ неверный или нет доступа. Проверь GROK_API_KEY в .env")
+                raise SystemExit("LLM API: ключ неверный или нет доступа. Проверь LLM_API_KEY в .env")
             time.sleep(3 * attempt)
         except Exception as e:
             log.warning(f"  Ошибка запроса (попытка {attempt}): {e}")
@@ -245,11 +253,11 @@ def classify_batch(batch: List[dict], api_key: str, system_prompt: str, retries:
 
 
 def classify_posts(posts: List[dict]) -> List[dict]:
-    api_key = (os.getenv("GROQ_API_KEY") or os.getenv("GROK_API_KEY", "local")).strip() or "local"
+    api_key = (API_KEY_ENV or "local").strip() or "local"
     if not _IS_LOCAL and api_key == "local":
         raise SystemExit(
-            "GROK_API_KEY не задан. Добавь в .env:\n"
-            "  GROK_API_KEY=gsk_...  (Groq)\n"
+            "LLM_API_KEY не задан. Добавь в .env:\n"
+            "  LLM_API_KEY=sk-...  LLM_BASE_URL=https://api.deepseek.com/v1  (DeepSeek)\n"
             "  или LLM_BASE_URL=http://10.100.200.199:2000/v1 (локальный сервер)"
         )
     log.info(f"LLM: {API_BASE}  model={MODEL}  {'(локальный vLLM)' if _IS_LOCAL else '(облако)'}")
@@ -305,7 +313,7 @@ def enrich_meta():
 
     api_key = (API_KEY_ENV or "local").strip() or "local"
     if not _IS_LOCAL and api_key == "local":
-        raise SystemExit("GROQ_API_KEY (или GROK_API_KEY) не задан в .env")
+        raise SystemExit("LLM_API_KEY не задан в .env")
     cache = load_cache()
 
     feedback_block = _fetch_feedback_examples()

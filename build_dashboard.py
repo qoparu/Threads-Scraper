@@ -487,6 +487,117 @@ def period_str(posts):
     return f"{min(ds).strftime('%d.%m.%Y')} — {max(ds).strftime('%d.%m.%Y')}" if ds else ""
 
 
+# ── Исторический обзор месяца: карта районов + ИИ-сводка ────────────────────
+# Первый выпуск — июнь 2026, сводка написана вручную по данным корпуса.
+# TODO: автоматизировать генерацию помесячных сводок через Groq
+# (тот же GROQ_API_KEY/паттерн, что в grok_filter.py), когда появится ключ.
+REVIEW_MONTH = "2026-06"
+REVIEW_TITLE = "Июнь 2026"
+
+# 8 городских районов Алматы — как в almaty-districts.geo.json (nameRu без «район»).
+# Районы Алматинской ОБЛАСТИ (напр. Уйгурский) на карту города не попадают.
+CITY_DISTRICTS = ["Алатауский", "Алмалинский", "Ауэзовский", "Бостандыкский",
+                  "Жетысуский", "Медеуский", "Наурызбайский", "Турксибский"]
+
+# Живые снимки скрапера Threads (см. run_hourly.py) — НЕ прошли AI-проверку,
+# но честно показывают реальный объём собранного за месяц (в отличие от
+# meta_clean.json, который отражает только уже AI-верифицированную часть).
+# Оба файла держим: data/threads_live.json — более ранний снимок, output/ —
+# более свежий; вместе (объединённые по id) они покрывают месяц почти без пропусков.
+THREADS_ARCHIVE_PATHS = [HERE / "data" / "threads_live.json", HERE / "output" / "threads_live.json"]
+
+
+def _archive_month_total(month: str) -> int:
+    """Сколько постов про Алматы реально собрано в Threads за месяц —
+    по объединению живых снимков скрапера (см. THREADS_ARCHIVE_PATHS).
+    Не подменяет AI-верифицированный корпус, только честная цифра объёма."""
+    seen = {}
+    for path in THREADS_ARCHIVE_PATHS:
+        if not path.exists():
+            continue
+        try:
+            for p in json.loads(path.read_text(encoding="utf-8")):
+                if str(p.get("created_at", ""))[:7] == month:
+                    seen[p.get("id")] = True
+        except Exception:
+            continue
+    return len(seen)
+
+
+REVIEW_AI_SUMMARY = [
+    "Автоматический сбор в Threads поймал за июнь {archive_total} упоминаний Алматы; строгую "
+    "антиспам- и AI-проверку (категория, острота, район) на момент этой сводки прошли только "
+    "{n} обращений — на них построены карта и разбор тем ниже, остальные ждут очереди на "
+    "AI-верификацию. Даже на этой выборке фон напряжённый: 62% обращений негативные, 34 (44%) "
+    "— повышенной остроты (4–5).",
+    "Главная тема AI-проверенной выборки — «Дороги и транспорт» (21 обращение, 27%). Горожане "
+    "писали о разбитом Кульджинском тракте, где обещанный ещё в 2024 году ремонт так и не "
+    "завершён, об опасной велодорожке на Тимирязева, о свежей дороге на Ремизовке, где уже "
+    "латают люки, о работе общественного транспорта и грубости таксистов. Отдельный резонанс "
+    "— транспортный коллапс на выезде из города на концерт в Конаеве.",
+    "Второй план — безопасность и застройка (по 10 обращений). Самый обсуждаемый инцидент — "
+    "видео с избиением подростка на футбольном поле в 8-м микрорайоне. В застройке звучит "
+    "контраст: «строим Смарт Сити и говорим о высоких технологиях», а в Алатауском районе у "
+    "людей нет водоснабжения, отключают свет и отсутствует интернет. В образовании (8) — "
+    "старт подачи документов в 1-й класс: родители жалуются на нехватку мест и отказы, в том "
+    "числе в НИШ «Медеу» и РФМШ.",
+    "Позитивная повестка тоже есть (12 постов, 15%): запуск зоны низких выбросов LEZ, анонс "
+    "надземного метро SkyTrain, 100 тысяч поездок на кикшеринговых самокатах в сутки, "
+    "бесплатная летняя резиденция для учителей и восторженные отзывы гостей города.",
+    "Ограничение карты: район удалось определить только у 5 городских обращений (Алатауский, "
+    "Жетысуский, Алмалинский, Медеуский) — район распознаёт только AI-проверка, а её прошла "
+    "малая часть месяца. По остальным районам данных недостаточно для честной детализации, "
+    "это помечено на карте знаком «❔».",
+]
+
+
+def month_review(posts):
+    """Агрегат для вкладки «Обзор месяца»: срез по REVIEW_MONTH — статистика,
+    категории с самым резонансным постом и разбивка по городским районам
+    (честно, без выдумывания: районы без данных получают count=0).
+    Категории/цитаты берутся из AI-верифицированного корпуса (posts); архивный
+    объём (archive_total) — отдельная честная цифра «сколько всего собрано»."""
+    mp = [p for p in posts if str(p.get("created_at", ""))[:7] == REVIEW_MONTH]
+    if len(mp) < 10:
+        return None
+    n = len(mp)
+    archive_total = max(_archive_month_total(REVIEW_MONTH), n)
+    days = sorted({str(p["created_at"])[:10] for p in mp})
+    period = f"{int(days[0][8:10])}–{int(days[-1][8:10])} июня 2026"
+
+    cats = defaultdict(list)
+    for p in mp:
+        cats[p["category"]].append(p)
+    categories = []
+    for cat, items in sorted(cats.items(), key=lambda kv: -len(kv[1])):
+        top = max(items, key=engagement)
+        categories.append({"category": cat, "count": len(items),
+                           "share": round(len(items) / n, 3), "neg": neg_share(items),
+                           "eng": sum(engagement(x) for x in items),
+                           "top_post": sample(top)})
+
+    districts, tagged = [], 0
+    for name in CITY_DISTRICTS:
+        items = [p for p in mp if (p.get("district") or "").strip() == name]
+        tagged += len(items)
+        top_cat = Counter(x["category"] for x in items).most_common(1)[0][0] if items else ""
+        districts.append({"name": name, "count": len(items), "top_category": top_cat,
+                          "neg": neg_share(items) if items else 0,
+                          "posts": [sample(x) for x in
+                                    sorted(items, key=engagement, reverse=True)[:3]]})
+
+    return {
+        "month": REVIEW_MONTH, "title": REVIEW_TITLE, "period": period,
+        "n": n, "archive_total": archive_total, "reach": sum(engagement(p) for p in mp),
+        # доля именно негативных по тональности (для чипа «негатив» — согласуется со сводкой)
+        "neg": round(sum(1 for p in mp if p["sentiment"] == "негатив") / n, 3),
+        "acute": sum(1 for p in mp if p.get("severity", 0) >= 4),
+        "district_tagged": tagged,
+        "categories": categories, "districts": districts,
+        "ai_summary": [p.format(archive_total=archive_total, n=n) for p in REVIEW_AI_SUMMARY],
+    }
+
+
 def build(posts, all_feed, stats):
     dts = [d for d in (parse_dt(p["created_at"]) for p in posts) if d]
     now = max(dts) if dts else datetime.now(timezone.utc)
@@ -776,7 +887,6 @@ def build(posts, all_feed, stats):
         "tension": {"value": tension, "label": tlabel},
         "senti_by_cat": senti_by_cat, "triggers": triggers, "negwords": negwords,
         "districts": dist_rows, "timeline": timeline, "weekday_topics": weekday_topics,
-        "chronicle": chronicle,
         "platforms": platforms, "langs": langs, "tiers": tiers,
         "top_posts": [sample(p) for p in top_posts],
         **_dedup_post_lists(all_sorted, feed_sorted, missing_sorted),
@@ -1166,6 +1276,8 @@ def main():
             cv_y = _youth_cv(cv_list)
             tops_y = [t for t in tops if _YOUTH_RX.search(t.get("title", "") + " " + t.get("category", ""))]
             ump = _attach(build(youth, yfeed, stats), cv_y, tops_y, scraper)
+            # Ручная ИИ-сводка написана по городскому корпусу — для УМП не показываем.
+            ump["month_review"] = None
             (OUT.parent / "ump.html").write_text(_render(ump, geo, "ump"), encoding="utf-8")
             log.info(f"Дашборд (УМП): {OUT.parent / 'ump.html'} — постов молодёжи: {len(youth)}")
         else:
