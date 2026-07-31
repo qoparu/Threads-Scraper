@@ -252,6 +252,12 @@ def build_dashboard(merged_posts: list) -> bool:
     LIVE_MERGE.write_text(json.dumps(merged_posts, ensure_ascii=False), encoding="utf-8")
     log.info(f"Live merged data written: {LIVE_MERGE}")
 
+    # Персистим мёрж обратно в META_CLEAN — иначе он никогда не растёт между
+    # запусками (каждый следующий прогон читал бы ту же исходную базу и терял
+    # накопленные Threads-посты прошлых часов).
+    META_CLEAN.write_text(json.dumps(merged_posts, ensure_ascii=False), encoding="utf-8")
+    log.info(f"Base corpus updated: {META_CLEAN} ({len(merged_posts)} posts)")
+
     try:
         import build_dashboard as bd
         # Патчим путь к данным — используем live-мёрж вместо meta_clean.json
