@@ -887,6 +887,7 @@ def build(posts, all_feed, stats):
         "tension": {"value": tension, "label": tlabel},
         "senti_by_cat": senti_by_cat, "triggers": triggers, "negwords": negwords,
         "districts": dist_rows, "timeline": timeline, "weekday_topics": weekday_topics,
+        "chronicle": chronicle, "month_review": month_review(posts),
         "platforms": platforms, "langs": langs, "tiers": tiers,
         "top_posts": [sample(p) for p in top_posts],
         **_dedup_post_lists(all_sorted, feed_sorted, missing_sorted),
