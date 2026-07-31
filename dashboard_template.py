@@ -479,7 +479,10 @@ html[data-theme="dark"] .gsearch:focus{background:var(--surface)}
 const DATA=/*__DATA__*/;const GEO=/*__GEO__*/;const VIEW=/*__VIEW__*/;
 (function(){var u=VIEW==='ump';var a=document.getElementById(u?'vt-ump':'vt-city');if(a)a.classList.add('active');
  var sc=document.getElementById('sbScope');if(sc)sc.textContent=u?'Управление молодёжной политики · вузы, общежития, студенты':'Акимат г. Алматы · город целиком';
- try{document.title=(u?'Молодёжная политика':'Акимат Алматы')+' · CityPulse';}catch(e){}})();
+ try{document.title=(u?'Молодёжная политика':'Акимат Алматы')+' · CityPulse';}catch(e){}
+ // Страница ump.html собирается не всегда (нужно ≥15 молодёжных постов) — без неё
+ // ссылка ведёт на 404. Прячем вкладку, если её сейчас нет.
+ var vtUmp=document.getElementById('vt-ump');if(vtUmp&&!DATA.has_ump)vtUmp.style.display='none';})();
 if(DATA.posts_by_id){DATA.all_posts=(DATA.all_posts||[]).map(id=>DATA.posts_by_id[id]).filter(Boolean);DATA.feed_posts=(DATA.feed_posts||[]).map(id=>DATA.posts_by_id[id]).filter(Boolean);DATA.missing_persons=(DATA.missing_persons||[]).map(id=>DATA.posts_by_id[id]).filter(Boolean);}
 const $=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
 const fmt=n=>Number(n||0).toLocaleString('ru-RU');
