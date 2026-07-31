@@ -785,6 +785,28 @@ def build(posts, all_feed, stats):
         for wd in range(7)
     ]
 
+    # ── Хроника: заметные дни + вероятная причина (самый резонансный пост дня) ──
+    # У нас нет ленты новостей — «событие» это реконструкция по самому острому/
+    # заметному посту дня, со ссылкой на источник. Дни с 1 постом пропускаем —
+    # мало сигнала, чтобы говорить о всплеске.
+    daily = defaultdict(list)
+    for p in posts:
+        d = parse_dt(p["created_at"])
+        if d and p["category"] != "Прочее":
+            daily[d.date()].append(p)
+    day_rows = []
+    for day, items in daily.items():
+        if len(items) < 2:
+            continue
+        top_cat = Counter(i["category"] for i in items).most_common(1)[0][0]
+        signature = max(items, key=lambda i: (i["severity"], engagement(i)))
+        day_rows.append({
+            "date": day.isoformat(), "weekday": WEEKDAY_NAMES[day.weekday()],
+            "count": len(items), "category": top_cat, "signature": sample(signature),
+        })
+    day_rows.sort(key=lambda r: r["count"], reverse=True)
+    chronicle = sorted(day_rows[:12], key=lambda r: r["date"])
+
     platforms = []
     for plat in ("Facebook", "Instagram", "Threads"):
         pp = [p for p in posts if p["platform"] == plat]
@@ -865,7 +887,6 @@ def build(posts, all_feed, stats):
         "tension": {"value": tension, "label": tlabel},
         "senti_by_cat": senti_by_cat, "triggers": triggers, "negwords": negwords,
         "districts": dist_rows, "timeline": timeline, "weekday_topics": weekday_topics,
-        "month_review": month_review(posts),
         "platforms": platforms, "langs": langs, "tiers": tiers,
         "top_posts": [sample(p) for p in top_posts],
         **_dedup_post_lists(all_sorted, feed_sorted, missing_sorted),

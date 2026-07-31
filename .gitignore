@@ -36,6 +36,10 @@ test_output.txt
 test_search_output.txt
 media/ss
 
+# ── Узел переноса (СЕКРЕТЫ! никогда в git) ──
+state.tgz
+*.tgz
+
 # ── Прочее ──
 .DS_Store
 Thumbs.db
