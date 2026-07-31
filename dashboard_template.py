@@ -230,7 +230,7 @@ section[data-emoji] > *{position:relative;z-index:1}
 .modal-foot{position:sticky;bottom:0;background:var(--surface);padding:14px 24px 20px;display:flex;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line)}
 .modal-foot .btn-primary{background:linear-gradient(135deg,var(--indigo),var(--sky));color:#fff;border:none;font-weight:700;font-size:13px;padding:11px 18px;border-radius:11px;cursor:pointer}
 .modal-foot .btn-ghost{background:var(--soft);border:1px solid var(--line);color:var(--ink2);font-weight:600;font-size:13px;padding:11px 18px;border-radius:11px;cursor:pointer}
-.pm-fab{position:fixed;left:18px;bottom:18px;z-index:90;background:linear-gradient(135deg,var(--rose),#fb7185);color:#fff;
+.pm-fab{position:fixed;right:18px;bottom:18px;z-index:90;background:linear-gradient(135deg,var(--rose),#fb7185);color:#fff;
  border:none;border-radius:30px;padding:11px 16px;font-weight:700;font-size:13px;cursor:pointer;box-shadow:var(--sh2);display:flex;align-items:center;gap:7px}
 .pm-fab:hover{filter:brightness(1.06)}
 @media(max-width:560px){.pm-fab span{display:none}}
