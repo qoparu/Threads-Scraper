@@ -1110,7 +1110,11 @@ window._sendFeedback=async function(btn,verdict){
   if(!r.ok){throw new Error('HTTP '+r.status);}
   localStorage.setItem('fb_'+meta.id,verdict);
   _paintFeedback(wrap,verdict);
- }catch(e){wrap.querySelectorAll('.fb-btn').forEach(b=>b.disabled=false);}
+ }catch(e){
+  console.error('Feedback save failed:', e);
+  wrap.querySelectorAll('.fb-btn').forEach(b=>b.disabled=false);
+  const note=wrap.querySelector('.fb-note');if(note)note.textContent='⚠ Не сохранилось — сервер фидбека недоступен';
+ }
 };
 function _paintFeedback(wrap,verdict){
  wrap.querySelectorAll('.fb-btn').forEach(b=>{b.disabled=true;b.classList.toggle('voted',b.classList.contains(verdict));});
