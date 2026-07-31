@@ -3,7 +3,12 @@ name: Hourly Threads scrape + dashboard deploy
 on:
   schedule:
     - cron: "15 * * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      rebuild_only:
+        description: "Быстрый режим: пересобрать дашборд из уже накопленного кэша и задеплоить, БЕЗ нового скрапинга Threads (~1-2 мин вместо 20-30)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -42,6 +47,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Install Chromium
+        if: github.event.inputs.rebuild_only != 'true'
         run: playwright install --with-deps chromium
 
       - name: Write secrets
@@ -52,14 +58,26 @@ jobs:
           VERCEL_TOKEN=${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID=${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID=${{ secrets.VERCEL_PROJECT_ID }}
-          GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
+          LLM_API_KEY=${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL=${{ secrets.LLM_BASE_URL }}
+          LLM_MODEL=${{ secrets.LLM_MODEL }}
           EOF
 
       - name: Run hourly scrape + build + deploy
+        if: github.event.inputs.rebuild_only != 'true'
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: python run_hourly.py
+
+      # Быстрый путь: без скрапинга, просто пересобрать public/index.html из уже
+      # накопленных data/output и задеплоить — для проверки правок в коде дашборда.
+      - name: Rebuild + deploy from cache only (fast mode)
+        if: github.event.inputs.rebuild_only == 'true'
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: python merge_and_deploy.py
 
       # always() — сохраняем прогресс, даже если сам прогон упал с ошибкой на середине.
       - name: Save persistent state
