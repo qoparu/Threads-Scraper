@@ -61,7 +61,7 @@ Settings → Secrets and variables → Actions:
 | `THREADS_COOKIE` | DevTools, см. `ИНСТРУКЦИЯ.md` |
 | `VERCEL_TOKEN` | vercel.com/account/tokens |
 | `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` | `cat public/.vercel/project.json` после `npx vercel link` |
-| `GROQ_API_KEY` | опционально, для AI-фильтрации топ-постов |
+| `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL` | опционально, для AI-фильтрации постов (район/тема/острота). Провайдер-агностично — см. примеры в `grok_filter.py` (DeepSeek, Groq, локальный сервер) |
 
 Проверить запуск вручную: вкладка **Actions** → workflow → **Run workflow**.
 
