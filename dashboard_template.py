@@ -855,11 +855,12 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
 
 /* 20. ИЮНЬ: ОБЗОР МЕСЯЦА — игровая карта районов + ИИ-сводка */
 (function(){const R=D.month_review;if(!R)return;
- const b=sec(20,R.title+': обзор месяца',`исторический срез · ${esc(R.period)} · ${fmt(R.n)} проверенных обращений`,'month','indigo','🗓️');
+ const b=sec(20,R.title+': обзор месяца',`исторический срез · ${esc(R.period)} · ${fmt(R.n)} из ${fmt(R.archive_total)} собранных прошли AI-проверку`,'month','indigo','🗓️');
  const EMO={'Дороги и транспорт':'🚗','ЖКХ и инфраструктура':'🔧','Вода и канализация':'🚱','Электроснабжение':'⚡','Экология и воздух':'🌫️','Благоустройство и мусор':'🗑️','Строительство и застройка':'🏗️','Безопасность и правопорядок':'🚨','Здравоохранение':'🏥','Образование':'🎓','Госуслуги и бюрократия':'📄','Цены и социальные вопросы':'💸','Прочее':'💬'};
  const topCat=R.categories[0];
  const chips=[
-  ['📨','Обращений',fmt(R.n)],
+  ['📥','Собрано всего',fmt(R.archive_total)],
+  ['✅','AI-проверено',fmt(R.n)],
   ['📢','Суммарный охват',fmt(R.reach)],
   ['😠','Негативных',Math.round(R.neg*100)+'%'],
   ['🔥','Острых (4–5)',fmt(R.acute)],
@@ -870,7 +871,7 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
    <div class="q-rank">#${i+1}</div>
    <div class="q-ic">${EMO[c.category]||'💬'}</div>
    <h3>${esc(c.category)}</h3>
-   <div class="tiny">${fmt(c.count)} обращений · ${pct(c.share)} корпуса · охват ${fmt(c.eng)}</div>
+   <div class="tiny">${fmt(c.count)} обращений · ${pct(c.share)} AI-выборки · охват ${fmt(c.eng)}</div>
    <div class="bar7 ${c.neg>=.5?'neg':''}"><i style="width:${Math.max(6,Math.round(c.count/mx*100))}%"></i></div>
    ${c.top_post?`<div class="quote ${c.neg>=.5?'neg':''}" style="margin:8px 0 0">${ptext(c.top_post.text)}</div>
    <div style="margin-top:8px"><span class="pill ind">охват ${fmt(c.top_post.eng)}</span>${c.top_post.url?`<a class="pill" href="${esc(c.top_post.url)}" target="_blank">${linkLabel(c.top_post)}</a>`:''}</div>`:''}
@@ -890,7 +891,7 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
    </div>
   </div>
   <div class="card" style="margin-top:16px"><h3>🏆 Топ-темы месяца</h3>
-   <div class="tiny" style="margin-bottom:10px">категории по объёму обращений · в каждой — самый резонансный пост</div>
+   <div class="tiny" style="margin-bottom:10px">по AI-проверенной выборке (${fmt(R.n)} из ${fmt(R.archive_total)} собранных) · в каждой — самый резонансный пост</div>
    <div class="grid g3">${quests}</div></div>`;
  setTimeout(()=>{try{
   if(!GEO)return;
