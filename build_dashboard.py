@@ -1261,30 +1261,34 @@ def main():
     tops = load_top_solutions()
     OUT.parent.mkdir(parents=True, exist_ok=True)
 
-    # ── ГОРОД (Акимат) → index.html ──
-    city = _attach(build(posts, all_feed, stats), cv_list, tops, scraper)
-    OUT.write_text(_render(city, geo, "city"), encoding="utf-8")
-    log.info(f"Дашборд (город): {OUT}")
-    log.info(f"Топ-проблема: {city['problems'][0]['category']} ({city['problems'][0]['count']})"
-             if city["problems"] else "нет проблем")
-
-    # ── УМП (молодёжь / вузы) → ump.html ──
+    # ── УМП (молодёжь / вузы) сначала — чтобы «Город» знал, показывать ли вкладку ──
+    has_ump = False
     try:
         llm_map = _ump_llm_filter(list(posts) + list(all_feed))   # локальная Qwen + кэш
         youth = _recat_youth(posts, llm_map)     # молодёжные посты в СВОЕЙ таксономии
         yfeed = _recat_youth(all_feed, llm_map) or youth
         if len(youth) >= 15:
+            has_ump = True
             cv_y = _youth_cv(cv_list)
             tops_y = [t for t in tops if _YOUTH_RX.search(t.get("title", "") + " " + t.get("category", ""))]
             ump = _attach(build(youth, yfeed, stats), cv_y, tops_y, scraper)
             # Ручная ИИ-сводка написана по городскому корпусу — для УМП не показываем.
             ump["month_review"] = None
+            ump["has_ump"] = True
             (OUT.parent / "ump.html").write_text(_render(ump, geo, "ump"), encoding="utf-8")
             log.info(f"Дашборд (УМП): {OUT.parent / 'ump.html'} — постов молодёжи: {len(youth)}")
         else:
             log.warning(f"УМП: молодёжных постов мало ({len(youth)}) — ump.html пропущен")
     except Exception as e:
         log.error(f"УМП-вариант не собран: {e}")
+
+    # ── ГОРОД (Акимат) → index.html ──
+    city = _attach(build(posts, all_feed, stats), cv_list, tops, scraper)
+    city["has_ump"] = has_ump
+    OUT.write_text(_render(city, geo, "city"), encoding="utf-8")
+    log.info(f"Дашборд (город): {OUT}")
+    log.info(f"Топ-проблема: {city['problems'][0]['category']} ({city['problems'][0]['count']})"
+             if city["problems"] else "нет проблем")
 
 
 from dashboard_template import HTML_TEMPLATE  # noqa: E402
