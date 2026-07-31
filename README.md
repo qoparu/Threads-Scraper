@@ -65,6 +65,16 @@ Settings → Secrets and variables → Actions:
 
 Проверить запуск вручную: вкладка **Actions** → workflow → **Run workflow**.
 
+**Кнопка «Обновить сейчас» на самом дашборде** — не ждать расписания можно и прямо с сайта:
+кнопка в шапке дёргает `workflow_dispatch` через `public/api/trigger-refresh.js`, попап опрашивает
+прогресс через `public/api/refresh-status.js`. Публичная, без авторизации — если уже что-то
+крутится, второй запуск не дублируется (409). Нужен ещё один секрет, но уже в **Vercel**
+(Project → Settings → Environment Variables), не в GitHub:
+
+| Env var (Vercel) | Откуда |
+|---|---|
+| `GH_ACTIONS_TOKEN` | GitHub → Settings → Developer settings → Personal access tokens. Нужны права `actions:write` + `actions:read` (fine-grained, ограничить репозиторием) или classic-токен со scope `repo` |
+
 **Вариант B — свой сервер/VPS** (если нужен постоянный процесс вне GitHub, например для
 Meta-данных/большого кэша). Инструкция — [`deploy/DEPLOY_SERVER.md`](deploy/DEPLOY_SERVER.md),
 установка одной командой — `bash deploy/setup.sh` (ставит venv, Chromium, systemd-таймер).

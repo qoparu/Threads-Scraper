@@ -388,6 +388,7 @@ html[data-theme="dark"] .gsearch:focus{background:var(--surface)}
    <div class="topbar">
      <input id="gs" class="gsearch" placeholder="🔎 Поиск по обращениям…" autocomplete="off">
      <div class="topstrip" id="topstrip"></div>
+     <button class="btn" id="refreshBtn" style="white-space:nowrap">🔄 Обновить сейчас</button>
      <div class="clock" id="clock">—</div>
    </div>
    <section class="hero" id="s1"><div id="hero"></div></section>
@@ -398,6 +399,82 @@ html[data-theme="dark"] .gsearch:focus{background:var(--surface)}
 <script>(function(){var b=document.getElementById('themeBtn');if(b){function sync(){var d=document.documentElement.dataset.theme==='dark';var s=b.querySelector('.sb-ic');if(s)s.textContent=d?'☀':'◐';}sync();
  b.addEventListener('click',function(){var n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;try{localStorage.setItem('theme',n);}catch(e){}sync();});}
  var tg=document.getElementById('sbToggle'),sb=document.getElementById('sidebar');if(tg&&sb)tg.addEventListener('click',function(){sb.classList.toggle('open');});})();</script>
+<script>
+/* Кнопка «Обновить сейчас» — дёргает GitHub Actions (workflow_dispatch) и опрашивает статус */
+(function(){
+  var btn=document.getElementById('refreshBtn');if(!btn)return;
+  var ICON={pending:'○',active:'◐',done:'✓',failed:'✕'};
+  var modal=null,poll=null;
+  function ensureModal(){
+    if(modal)return modal;
+    var bg=document.createElement('div');bg.className='modal-bg';bg.id='refreshModal';
+    bg.innerHTML='<div class="modal" role="dialog" aria-modal="true" aria-label="Обновление данных">'+
+      '<div class="modal-top"><button class="modal-x" aria-label="закрыть">✕</button>'+
+      '<div class="mt-tag">🔄 Обновление данных</div>'+
+      '<h2 id="rf-title">Запускаем сбор…</h2>'+
+      '<p id="rf-sub">Это займёт 20-30 минут — можно закрыть окно, обновление продолжится в фоне.</p></div>'+
+      '<div class="modal-body"><div id="rf-stages"></div></div>'+
+      '<div class="modal-foot"><button class="btn-ghost" id="rf-close">Закрыть</button>'+
+      '<a class="btn-ghost" id="rf-link" href="#" target="_blank" style="display:none">Лог на GitHub →</a></div></div>';
+    document.body.appendChild(bg);
+    bg.querySelector('.modal-x').onclick=function(){bg.classList.remove('show');};
+    bg.querySelector('#rf-close').onclick=function(){bg.classList.remove('show');};
+    bg.addEventListener('click',function(e){if(e.target===bg)bg.classList.remove('show');});
+    modal=bg;return bg;
+  }
+  function renderStages(stages){
+    if(!stages||!stages.length)return '<div class="tiny">Ожидаем начала…</div>';
+    return stages.map(function(s){
+      var bgc=s.status==='failed'?'var(--neg-bg)':s.status==='done'?'var(--ok-bg)':'var(--soft)';
+      var ic=s.status==='failed'?'var(--neg-ink)':s.status==='done'?'var(--ok-ink)':'var(--ink2)';
+      return '<div class="pm-item" style="align-items:center">'+
+        '<div class="pm-rank" style="background:'+bgc+';color:'+ic+'">'+(ICON[s.status]||'○')+'</div>'+
+        '<div class="pm-body"><h4 style="font-size:14px">'+s.label+'</h4></div></div>';
+    }).join('');
+  }
+  function resetBtn(){btn.disabled=false;btn.textContent='🔄 Обновить сейчас';}
+  function tick(){
+    fetch('/api/refresh-status').then(function(r){return r.json();}).then(function(d){
+      var bg=ensureModal();
+      bg.querySelector('#rf-stages').innerHTML=renderStages(d.stages);
+      var link=bg.querySelector('#rf-link');
+      if(d.html_url){link.href=d.html_url;link.style.display='inline-block';}
+      if(d.status==='completed'){
+        clearInterval(poll);poll=null;
+        bg.querySelector('#rf-title').textContent=d.conclusion==='success'?'Готово ✓':'Прогон завершился с ошибкой';
+        bg.querySelector('#rf-sub').textContent=d.conclusion==='success'
+          ?'Дашборд обновлён свежими данными.':'Загляни в лог на GitHub — что-то пошло не так.';
+        resetBtn();
+      }
+    }).catch(function(){});
+  }
+  btn.addEventListener('click',function(){
+    btn.disabled=true;btn.textContent='Запускаю…';
+    var bg=ensureModal();bg.classList.add('show');
+    bg.querySelector('#rf-title').textContent='Запускаем сбор…';
+    bg.querySelector('#rf-sub').textContent='Это займёт 20-30 минут — можно закрыть окно, обновление продолжится в фоне.';
+    bg.querySelector('#rf-stages').innerHTML='<div class="tiny">Ожидаем начала…</div>';
+    bg.querySelector('#rf-link').style.display='none';
+    fetch('/api/trigger-refresh',{method:'POST'}).then(function(r){
+      if(r.status===409){
+        bg.querySelector('#rf-title').textContent='Уже запущено';
+        bg.querySelector('#rf-sub').textContent='Сбор данных сейчас и так идёт — дождись его завершения.';
+        resetBtn();
+      }else if(!r.ok){
+        return r.json().catch(function(){return {};}).then(function(d){
+          bg.querySelector('#rf-title').textContent='Не удалось запустить';
+          bg.querySelector('#rf-sub').textContent=d.error||'Попробуй ещё раз чуть позже.';
+          resetBtn();
+        });
+      }
+    }).catch(function(){
+      bg.querySelector('#rf-title').textContent='Ошибка сети';
+      resetBtn();
+    });
+    if(!poll){poll=setInterval(tick,15000);tick();}
+  });
+})();
+</script>
 <script>
 const DATA=/*__DATA__*/;const GEO=/*__GEO__*/;const VIEW=/*__VIEW__*/;
 (function(){var u=VIEW==='ump';var a=document.getElementById(u?'vt-ump':'vt-city');if(a)a.classList.add('active');
