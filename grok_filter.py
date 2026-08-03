@@ -144,36 +144,90 @@ def _extract_json(content: str) -> Optional[dict]:
 # ── Фидбек модератора (👍/👎 на дашборде) → few-shot примеры для промпта ────────
 
 REDIS_URL = os.getenv("REDIS_URL", "")
+# Локальная страховка: зеркало голосов 👍/👎 на диске. Переживает сброс Redis
+# и попадает в state.tgz при переносе (data/ — вне git).
+FEEDBACK_BACKUP = HERE / "data" / "feedback_backup.json"
+_FB_KEYS = ("feedback:up", "feedback:down")
 
 
-def _fetch_feedback_examples(limit: int = 15) -> str:
-    """Тянет HGETALL feedback:up / feedback:down из Redis и собирает блок few-shot примеров."""
+def _load_feedback_backup() -> Dict[str, Dict[str, str]]:
+    """Локальная копия: {'feedback:up': {id: json}, 'feedback:down': {id: json}}."""
+    try:
+        d = json.loads(FEEDBACK_BACKUP.read_text(encoding="utf-8"))
+        return {k: dict(d.get(k, {})) for k in _FB_KEYS}
+    except Exception:
+        return {k: {} for k in _FB_KEYS}
+
+
+def _save_feedback_backup(data: Dict[str, Dict[str, str]]) -> None:
+    try:
+        FEEDBACK_BACKUP.parent.mkdir(parents=True, exist_ok=True)
+        FEEDBACK_BACKUP.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    except Exception as e:
+        log.warning(f"Не удалось записать локальную копию фидбека: {e}")
+
+
+def _sync_feedback() -> Dict[str, Dict[str, str]]:
+    """Зеркалит Redis <-> локальный файл, возвращает объединённые голоса {key: {id: json}}.
+
+    Redis жив     -> объединяю с локальной копией, пишу копию на диск, недостающее
+                     доливаю обратно в Redis (само-восстановление после сброса базы).
+    Redis мёртв   -> работаю по локальной копии (голоса не теряются).
+    """
+    local = _load_feedback_backup()
     if not REDIS_URL:
-        return ""
+        return local
 
     try:
         import redis  # noqa: WPS433
         client = redis.from_url(REDIS_URL, socket_timeout=5, decode_responses=True)
+        redis_data = {k: (client.hgetall(k) or {}) for k in _FB_KEYS}
     except Exception as e:
-        log.warning(f"Не удалось подключиться к Redis: {e}")
-        return ""
+        log.warning(
+            f"Redis недоступен ({e}) — беру фидбек из локальной копии {FEEDBACK_BACKUP.name}"
+        )
+        return local
 
-    def _hgetall(key: str) -> List[dict]:
-        try:
-            raw = client.hgetall(key)
-            items = []
-            for v in raw.values():
-                try:
-                    items.append(json.loads(v))
-                except Exception:
-                    continue
-            return items[-limit:]
-        except Exception as e:
-            log.warning(f"Не удалось получить фидбек ({key}): {e}")
-            return []
+    merged: Dict[str, Dict[str, str]] = {k: {} for k in _FB_KEYS}
+    restored = 0
+    for k in _FB_KEYS:
+        # Redis приоритетнее по значению; локальные id, которых нет в Redis, — доливаем назад
+        merged[k] = {**local.get(k, {}), **redis_data.get(k, {})}
+        missing = {i: v for i, v in merged[k].items() if i not in redis_data.get(k, {})}
+        if missing:
+            try:
+                client.hset(k, mapping=missing)
+                restored += len(missing)
+            except Exception as e:
+                log.warning(f"Не удалось восстановить {k} в Redis: {e}")
 
-    bad = _hgetall("feedback:down")
-    good = _hgetall("feedback:up")
+    if restored:
+        log.info(f"Восстановил в Redis {restored} голос(ов) из локальной копии")
+    _save_feedback_backup(merged)
+    log.info(
+        f"Фидбек-зеркало: up={len(merged['feedback:up'])} "
+        f"down={len(merged['feedback:down'])} -> data/{FEEDBACK_BACKUP.name}"
+    )
+    return merged
+
+
+def _fetch_feedback_examples(limit: int = 15) -> str:
+    """Собирает few-shot блок из голосов модератора (Redis + локальное зеркало)."""
+    data = _sync_feedback()
+
+    def _items(key: str) -> List[dict]:
+        out: List[dict] = []
+        for v in data.get(key, {}).values():
+            try:
+                out.append(json.loads(v))
+            except Exception:
+                continue
+        return out[-limit:]
+
+    bad = _items("feedback:down")
+    good = _items("feedback:up")
     if not bad and not good:
         return ""
 
