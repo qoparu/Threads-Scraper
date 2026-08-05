@@ -222,11 +222,15 @@ EXTRACT_JS = r"""() => {
         if (s == null) return null;
         let t = String(s).trim().toLowerCase().replace(/\s+/g, '');
         if (!/^[\d.,]+(k|к|m|м|тыс|млн)?\.?$/.test(t)) return null;
+        const hasUnit = /(k|к|m|м|тыс|млн)/.test(t);
         let mult = 1;
         if (/(^|[\d])(k|к|тыс)/.test(t)) mult = 1000;
         if (/(^|[\d])(m|м|млн)/.test(t)) mult = 1000000;
         const num = parseFloat(t.replace(',', '.').replace(/[^\d.]/g, ''));
         if (isNaN(num)) return null;
+        // Без суффикса Threads всегда показывает голое число < 100 000 (иначе сокращает до "K"/"M").
+        // Более длинные "голые" числа — не счётчики (обрывки ID/дат/текста), это шум — отбрасываем.
+        if (!hasUnit && num >= 100000) return null;
         return Math.round(num * mult);
     };
     const isCount = (s) => parseNum(s) !== null;
@@ -389,7 +393,11 @@ def scrape_search(page: Page, keyword: str, collected: dict, stats: dict,
     prev_count = 0
     stale_scrolls = 0
     for scroll_n in range(scroll_limit):
-        posts_raw = extract_posts_from_page(page)
+        try:
+            posts_raw = extract_posts_from_page(page)
+        except Exception as e:
+            log.warning(f"  [поиск «{keyword}»] Браузер упал на прокрутке {scroll_n+1}: {e}")
+            raise
 
         added = 0
         old_seen = 0
@@ -421,8 +429,12 @@ def scrape_search(page: Page, keyword: str, collected: dict, stats: dict,
             stale_scrolls = 0
         prev_count = len(posts_raw)
 
-        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-        page.wait_for_timeout(2800)
+        try:
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            page.wait_for_timeout(2800)
+        except Exception as e:
+            log.warning(f"  [поиск «{keyword}»] Браузер упал на прокрутке {scroll_n+1}: {e}")
+            raise
 
     clean = len([v for v in collected.values() if v is not None])
     log.info(f"  [поиск «{keyword}»] Завершено. Чистых постов всего: {clean}")
@@ -443,7 +455,11 @@ def scrape_tag(page: Page, tag: str, collected: dict, stats: dict, scroll_limit:
     prev_count = 0
     stale_scrolls = 0
     for scroll_n in range(scroll_limit):
-        posts_raw = extract_posts_from_page(page)
+        try:
+            posts_raw = extract_posts_from_page(page)
+        except Exception as e:
+            log.warning(f"  [#{tag}] Браузер упал на прокрутке {scroll_n+1}: {e}")
+            raise
 
         added = 0
         stop = False
@@ -470,8 +486,12 @@ def scrape_tag(page: Page, tag: str, collected: dict, stats: dict, scroll_limit:
             stale_scrolls = 0
         prev_count = len(posts_raw)
 
-        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-        page.wait_for_timeout(2800)
+        try:
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            page.wait_for_timeout(2800)
+        except Exception as e:
+            log.warning(f"  [#{tag}] Браузер упал на прокрутке {scroll_n+1}: {e}")
+            raise
 
     final = len([v for v in collected.values() if v is not None])
     log.info(f"  [#{tag}] Завершено. Чистых постов всего: {final}")

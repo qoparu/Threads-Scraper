@@ -91,9 +91,25 @@ def _sentiment(text: str) -> str:
 
 # ── Конвертация Threads-поста в схему meta_clean ────────────────────────────
 
+# Даже вирусный локальный пост про Алматы не наберёт сотни миллионов лайков/репостов —
+# такие значения означают баг парсинга (в счётчик попал обрывок ID/даты вместо реального числа).
+_MAX_SANE_COUNT = 5_000_000
+
+
+def _sane_count(n) -> int:
+    try:
+        n = int(n)
+    except (TypeError, ValueError):
+        return 0
+    return n if 0 <= n <= _MAX_SANE_COUNT else 0
+
+
 def threads_to_meta(p: dict) -> dict:
     text = p.get("text", "")
     owner = p.get("username", "")
+    likes   = _sane_count(p.get("like_count", 0))
+    replies = _sane_count(p.get("reply_count", 0))
+    reposts = _sane_count(p.get("repost_count", 0))
     return {
         "id":          f"Th_{p.get('id', '')}",
         "platform":    "Threads",
@@ -101,9 +117,9 @@ def threads_to_meta(p: dict) -> dict:
         "owner_name":  owner,
         "owner_type":  "person",
         "created_at":  p.get("created_at", ""),
-        "likes":       p.get("like_count", 0),
-        "comments":    p.get("reply_count", 0),
-        "shares":      p.get("repost_count", 0),
+        "likes":       likes,
+        "comments":    replies,
+        "shares":      reposts,
         "reactions":   {},
         "views":       0,
         "hashtags":    "",
@@ -119,7 +135,7 @@ def threads_to_meta(p: dict) -> dict:
         "is_complaint": bool(_COMPLAINT.search(text)),
         "theme":       "",
         "summary":     "",
-        "engagement":  p.get("like_count", 0) + p.get("reply_count", 0) + p.get("repost_count", 0),
+        "engagement":  likes + replies + reposts,
         "grok_done":   False,
         "grok_todo":   True,
         "drop":        _hard_drop(text, owner),
@@ -132,9 +148,10 @@ def apply_live_grok(posts: list) -> list:
         log.info("Live Grok disabled by ENABLE_LIVE_GROK")
         return posts
 
-    api_key = (os.getenv("GROQ_API_KEY") or os.getenv("GROK_API_KEY") or "").strip()
+    api_key = (os.getenv("LLM_API_KEY") or os.getenv("DEEPSEEK_API_KEY")
+               or os.getenv("GROQ_API_KEY") or os.getenv("GROK_API_KEY") or "").strip()
     if not api_key:
-        log.warning("No GROQ_API_KEY/GROK_API_KEY — live Threads remain unverified")
+        log.warning("No LLM_API_KEY — live Threads remain unverified")
         return posts
 
     try:
@@ -234,6 +251,12 @@ def build_dashboard(merged_posts: list) -> bool:
     LIVE_MERGE.parent.mkdir(exist_ok=True)
     LIVE_MERGE.write_text(json.dumps(merged_posts, ensure_ascii=False), encoding="utf-8")
     log.info(f"Live merged data written: {LIVE_MERGE}")
+
+    # Персистим мёрж обратно в META_CLEAN — иначе он никогда не растёт между
+    # запусками (каждый следующий прогон читал бы ту же исходную базу и терял
+    # накопленные Threads-посты прошлых часов).
+    META_CLEAN.write_text(json.dumps(merged_posts, ensure_ascii=False), encoding="utf-8")
+    log.info(f"Base corpus updated: {META_CLEAN} ({len(merged_posts)} posts)")
 
     try:
         import build_dashboard as bd

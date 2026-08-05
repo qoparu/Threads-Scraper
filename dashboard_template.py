@@ -230,7 +230,7 @@ section[data-emoji] > *{position:relative;z-index:1}
 .modal-foot{position:sticky;bottom:0;background:var(--surface);padding:14px 24px 20px;display:flex;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line)}
 .modal-foot .btn-primary{background:linear-gradient(135deg,var(--indigo),var(--sky));color:#fff;border:none;font-weight:700;font-size:13px;padding:11px 18px;border-radius:11px;cursor:pointer}
 .modal-foot .btn-ghost{background:var(--soft);border:1px solid var(--line);color:var(--ink2);font-weight:600;font-size:13px;padding:11px 18px;border-radius:11px;cursor:pointer}
-.pm-fab{position:fixed;left:18px;bottom:18px;z-index:90;background:linear-gradient(135deg,var(--rose),#fb7185);color:#fff;
+.pm-fab{position:fixed;right:18px;bottom:18px;z-index:90;background:linear-gradient(135deg,var(--rose),#fb7185);color:#fff;
  border:none;border-radius:30px;padding:11px 16px;font-weight:700;font-size:13px;cursor:pointer;box-shadow:var(--sh2);display:flex;align-items:center;gap:7px}
 .pm-fab:hover{filter:brightness(1.06)}
 @media(max-width:560px){.pm-fab span{display:none}}
@@ -339,10 +339,31 @@ html[data-theme="dark"] .gsearch:focus{background:var(--surface)}
 .ov-head{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px}
 .ov-head h2{font-size:22px}
 .ov-rail{display:flex;flex-direction:column;gap:16px;position:sticky;top:74px}
-.ov-mapcard #rmap{height:232px;border-radius:12px;overflow:hidden;margin-top:6px}
+.ov-mapcard #rmap{height:320px;border-radius:12px;overflow:hidden;margin-top:6px}
 .ov-index{display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:12.5px;color:var(--ink3)}
 .ov-index b{font-family:var(--disp);font-size:16px;color:var(--rose)}
 @media(max-width:760px){.sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);transition:.25s;box-shadow:var(--sh2)}.sidebar.open{transform:none}.sb-toggle{display:grid;place-items:center}.content{padding:56px 14px 40px}.topbar .gsearch{display:none}}
+/* ===== Обзор месяца: игровая карта районов + ИИ-сводка ===== */
+.mr-hud{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.mr-chip{display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:9px 15px;box-shadow:var(--sh);font-size:12px;color:var(--ink2)}
+.mr-chip .ic{font-size:18px}.mr-chip b{font-family:var(--disp);font-size:17px;color:var(--ink)}
+.mr-grid{display:grid;grid-template-columns:1.55fr 1fr;gap:16px;align-items:start}
+@media(max-width:1080px){.mr-grid{grid-template-columns:1fr}}
+#mrmap{height:480px;border-radius:14px;overflow:hidden;margin-top:8px}
+.mr-pin{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-size:22px;background:var(--surface);border:2px solid var(--indigo);box-shadow:0 4px 14px rgba(79,70,229,.35);position:relative;cursor:pointer;transition:transform .15s;animation:mrdrop .55s cubic-bezier(.2,.9,.3,1.4)}
+.mr-pin:hover{transform:scale(1.14)}
+.mr-pin.ghost{border:2px dashed var(--dotbg);opacity:.6;box-shadow:none;font-size:17px}
+.mr-cnt{position:absolute;top:-7px;right:-7px;min-width:20px;height:20px;border-radius:10px;background:linear-gradient(135deg,var(--indigo),var(--sky));color:#fff;font:800 11px/20px var(--disp);text-align:center;padding:0 5px;box-shadow:var(--sh)}
+@keyframes mrdrop{0%{transform:translateY(-16px) scale(.6);opacity:0}100%{transform:none;opacity:1}}
+.mr-pop{font-size:13px;max-width:250px;font-family:var(--sans)}
+.mr-popq{background:var(--soft);border-radius:8px;padding:7px 9px;margin:7px 0 5px;font-size:12px;color:var(--quote-ink)}
+.ai-sum{border:2px solid transparent;background:linear-gradient(var(--surface),var(--surface)) padding-box,linear-gradient(135deg,var(--indigo),var(--sky),var(--teal)) border-box}
+.ai-sum p{font-size:13.5px;line-height:1.66;color:var(--quote-ink);margin:0 0 11px}
+.ai-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.ai-badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--indigo),var(--sky));border-radius:30px;padding:4px 12px}
+.quest{overflow:hidden}
+.quest .q-ic{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;font-size:24px;background:var(--ind-bg);border:1px solid var(--ind-bd);margin-bottom:9px}
+.quest .q-rank{position:absolute;top:13px;right:15px;font:800 12px var(--disp);color:var(--indigo);background:var(--ind-bg);border:1px solid var(--ind-bd);border-radius:8px;padding:3px 9px}
 </style>
 <script>(function(){try{var t=localStorage.getItem('theme')||(window.matchMedia&&matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.dataset.theme=t;}catch(e){}})();</script>
 <!-- Vercel Web Analytics (заходы, источники, гео, устройства) -->
@@ -367,6 +388,7 @@ html[data-theme="dark"] .gsearch:focus{background:var(--surface)}
    <div class="topbar">
      <input id="gs" class="gsearch" placeholder="🔎 Поиск по обращениям…" autocomplete="off">
      <div class="topstrip" id="topstrip"></div>
+     <button class="btn" id="refreshBtn" style="white-space:nowrap">🔄 Обновить сейчас</button>
      <div class="clock" id="clock">—</div>
    </div>
    <section class="hero" id="s1"><div id="hero"></div></section>
@@ -378,10 +400,89 @@ html[data-theme="dark"] .gsearch:focus{background:var(--surface)}
  b.addEventListener('click',function(){var n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;try{localStorage.setItem('theme',n);}catch(e){}sync();});}
  var tg=document.getElementById('sbToggle'),sb=document.getElementById('sidebar');if(tg&&sb)tg.addEventListener('click',function(){sb.classList.toggle('open');});})();</script>
 <script>
+/* Кнопка «Обновить сейчас» — дёргает GitHub Actions (workflow_dispatch) и опрашивает статус */
+(function(){
+  var btn=document.getElementById('refreshBtn');if(!btn)return;
+  var ICON={pending:'○',active:'◐',done:'✓',failed:'✕'};
+  var modal=null,poll=null;
+  function ensureModal(){
+    if(modal)return modal;
+    var bg=document.createElement('div');bg.className='modal-bg';bg.id='refreshModal';
+    bg.innerHTML='<div class="modal" role="dialog" aria-modal="true" aria-label="Обновление данных">'+
+      '<div class="modal-top"><button class="modal-x" aria-label="закрыть">✕</button>'+
+      '<div class="mt-tag">🔄 Обновление данных</div>'+
+      '<h2 id="rf-title">Запускаем сбор…</h2>'+
+      '<p id="rf-sub">Это займёт 20-30 минут — можно закрыть окно, обновление продолжится в фоне.</p></div>'+
+      '<div class="modal-body"><div id="rf-stages"></div></div>'+
+      '<div class="modal-foot"><button class="btn-ghost" id="rf-close">Закрыть</button>'+
+      '<a class="btn-ghost" id="rf-link" href="#" target="_blank" style="display:none">Лог на GitHub →</a></div></div>';
+    document.body.appendChild(bg);
+    bg.querySelector('.modal-x').onclick=function(){bg.classList.remove('show');};
+    bg.querySelector('#rf-close').onclick=function(){bg.classList.remove('show');};
+    bg.addEventListener('click',function(e){if(e.target===bg)bg.classList.remove('show');});
+    modal=bg;return bg;
+  }
+  function renderStages(stages){
+    if(!stages||!stages.length)return '<div class="tiny">Ожидаем начала…</div>';
+    return stages.map(function(s){
+      var bgc=s.status==='failed'?'var(--neg-bg)':s.status==='done'?'var(--ok-bg)':'var(--soft)';
+      var ic=s.status==='failed'?'var(--neg-ink)':s.status==='done'?'var(--ok-ink)':'var(--ink2)';
+      return '<div class="pm-item" style="align-items:center">'+
+        '<div class="pm-rank" style="background:'+bgc+';color:'+ic+'">'+(ICON[s.status]||'○')+'</div>'+
+        '<div class="pm-body"><h4 style="font-size:14px">'+s.label+'</h4></div></div>';
+    }).join('');
+  }
+  function resetBtn(){btn.disabled=false;btn.textContent='🔄 Обновить сейчас';}
+  function tick(){
+    fetch('/api/refresh-status').then(function(r){return r.json();}).then(function(d){
+      var bg=ensureModal();
+      bg.querySelector('#rf-stages').innerHTML=renderStages(d.stages);
+      var link=bg.querySelector('#rf-link');
+      if(d.html_url){link.href=d.html_url;link.style.display='inline-block';}
+      if(d.status==='completed'){
+        clearInterval(poll);poll=null;
+        bg.querySelector('#rf-title').textContent=d.conclusion==='success'?'Готово ✓':'Прогон завершился с ошибкой';
+        bg.querySelector('#rf-sub').textContent=d.conclusion==='success'
+          ?'Дашборд обновлён свежими данными.':'Загляни в лог на GitHub — что-то пошло не так.';
+        resetBtn();
+      }
+    }).catch(function(){});
+  }
+  btn.addEventListener('click',function(){
+    btn.disabled=true;btn.textContent='Запускаю…';
+    var bg=ensureModal();bg.classList.add('show');
+    bg.querySelector('#rf-title').textContent='Запускаем сбор…';
+    bg.querySelector('#rf-sub').textContent='Это займёт 20-30 минут — можно закрыть окно, обновление продолжится в фоне.';
+    bg.querySelector('#rf-stages').innerHTML='<div class="tiny">Ожидаем начала…</div>';
+    bg.querySelector('#rf-link').style.display='none';
+    fetch('/api/trigger-refresh',{method:'POST'}).then(function(r){
+      if(r.status===409){
+        bg.querySelector('#rf-title').textContent='Уже запущено';
+        bg.querySelector('#rf-sub').textContent='Сбор данных сейчас и так идёт — дождись его завершения.';
+        resetBtn();
+      }else if(!r.ok){
+        return r.json().catch(function(){return {};}).then(function(d){
+          bg.querySelector('#rf-title').textContent='Не удалось запустить';
+          bg.querySelector('#rf-sub').textContent=d.error||'Попробуй ещё раз чуть позже.';
+          resetBtn();
+        });
+      }
+    }).catch(function(){
+      bg.querySelector('#rf-title').textContent='Ошибка сети';
+      resetBtn();
+    });
+    if(!poll){poll=setInterval(tick,15000);tick();}
+  });
+})();
+</script>
+<script>
 const DATA=/*__DATA__*/;const GEO=/*__GEO__*/;const VIEW=/*__VIEW__*/;
 (function(){var u=VIEW==='ump';var a=document.getElementById(u?'vt-ump':'vt-city');if(a)a.classList.add('active');
  var sc=document.getElementById('sbScope');if(sc)sc.textContent=u?'Управление молодёжной политики · вузы, общежития, студенты':'Акимат г. Алматы · город целиком';
- try{document.title=(u?'Молодёжная политика':'Акимат Алматы')+' · CityPulse';}catch(e){}})();
+ try{document.title=(u?'Молодёжная политика':'Акимат Алматы')+' · CityPulse';}catch(e){}
+ // Страница ump.html собирается не всегда (нужно ≥15 молодёжных постов) — без неё
+ // ссылка ведёт на 404. Прячем вкладку, если её сейчас нет.
+ var vtUmp=document.getElementById('vt-ump');if(vtUmp&&!DATA.has_ump)vtUmp.style.display='none';})();
 if(DATA.posts_by_id){DATA.all_posts=(DATA.all_posts||[]).map(id=>DATA.posts_by_id[id]).filter(Boolean);DATA.feed_posts=(DATA.feed_posts||[]).map(id=>DATA.posts_by_id[id]).filter(Boolean);DATA.missing_persons=(DATA.missing_persons||[]).map(id=>DATA.posts_by_id[id]).filter(Boolean);}
 const $=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
 const fmt=n=>Number(n||0).toLocaleString('ru-RU');
@@ -394,6 +495,7 @@ const reacEng=r=>r?(r.angry+r.sad+r.love+r.care+r.haha+r.wow):0;
 const linkLabel=p=>p.platform==='Threads'?'открыть в Threads ↗':p.platform==='Facebook'?'открыть пост ↗':'смотреть в Meta ↗';
 const D=DATA,M=D.meta,app=document.getElementById('app');const SECTIONS=[];
 const PAGE_DEFS=[['overview','Обзор'],['analytics','Аналитика'],['map','Карта'],['actions','Задачи и ответы'],['posts','Обращения'],['voice','Мнения жителей'],['methodology','Методология']];
+if(DATA.month_review)PAGE_DEFS.splice(1,0,['month','Итоги · '+DATA.month_review.title]);
 const PAGES={};
 PAGE_DEFS.forEach(([id,label])=>{const el=$('div','page');el.id='page-'+id;el.dataset.page=id;app.appendChild(el);PAGES[id]={el,label,sections:[]};});
 function sec(n,title,hint,page,tint,emoji){const s=$('section');s.id='s'+n;if(tint)s.classList.add('tint-'+tint);if(emoji)s.setAttribute('data-emoji',emoji);const h=$('div','sec-h');
@@ -618,6 +720,21 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
         <button class="btn" style="margin-left:auto" onclick="if(window.showPage)showPage('actions')">Все →</button></div>
         <div class="nsteps">${nsteps}</div></div>
     </div>
+    <div class="card" style="margin-top:16px"><h3>📅 Хроника: что волновало город</h3>
+      <div class="tiny" style="margin-bottom:4px">заметные дни за период · вероятная причина всплеска — самый резонансный пост дня (реконструкция по источнику, не проверенная новость)</div>
+      ${(()=>{const rows=(D.chronicle||[]).map(c=>{
+        const dt=c.date.split('-'),dd=`${dt[2]}.${dt[1]}`;
+        const sig=c.signature||{},snippet=(sig.text||'').slice(0,110);
+        const link=sig.url?`<a href="${esc(sig.url)}" target="_blank" rel="noopener" class="tiny" style="color:var(--indigo);font-weight:600">источник →</a>`:'';
+        return `<div style="display:flex;gap:12px;padding:10px 0;border-top:1px solid var(--line)">
+          <div style="width:64px;flex:none"><b style="font-size:13px">${esc(dd)}</b><div class="tiny">${esc(c.weekday)}</div></div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px"><span class="pill ind">${esc(c.category)}</span><span class="tiny">${c.count} обращений в этот день</span></div>
+            <div class="tiny" style="color:var(--ink2)">${esc(snippet)}${snippet.length>=110?'…':''}</div>
+            ${link}
+          </div></div>`;}).join('');
+        return rows||'<div class="tiny" style="opacity:.6;padding:10px 0">пока недостаточно данных для хроники</div>';})()}
+    </div>
    </div>
    <aside class="ov-rail">
     <div class="card ov-mapcard"><h3>🗺️ Районы города · напряжённость</h3>
@@ -831,6 +948,73 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
   try{map.fitBounds(layer.getBounds(),{padding:[12,12]});}catch(e){}},80);
 })();
 
+/* 20. ИЮНЬ: ОБЗОР МЕСЯЦА — игровая карта районов + ИИ-сводка */
+(function(){const R=D.month_review;if(!R)return;
+ const b=sec(20,R.title+': обзор месяца',`исторический срез · ${esc(R.period)} · ${fmt(R.n)} из ${fmt(R.archive_total)} собранных прошли AI-проверку`,'month','indigo','🗓️');
+ const EMO={'Дороги и транспорт':'🚗','ЖКХ и инфраструктура':'🔧','Вода и канализация':'🚱','Электроснабжение':'⚡','Экология и воздух':'🌫️','Благоустройство и мусор':'🗑️','Строительство и застройка':'🏗️','Безопасность и правопорядок':'🚨','Здравоохранение':'🏥','Образование':'🎓','Госуслуги и бюрократия':'📄','Цены и социальные вопросы':'💸','Прочее':'💬'};
+ const topCat=R.categories[0];
+ const chips=[
+  ['📥','Собрано всего',fmt(R.archive_total)],
+  ['✅','AI-проверено',fmt(R.n)],
+  ['📢','Суммарный охват',fmt(R.reach)],
+  ['😠','Негативных',Math.round(R.neg*100)+'%'],
+  ['🔥','Острых (4–5)',fmt(R.acute)],
+  topCat?[EMO[topCat.category]||'💬','Тема месяца',esc(topCat.category)]:null
+ ].filter(Boolean).map(c=>`<div class="mr-chip"><span class="ic">${c[0]}</span><span>${c[1]}<br><b>${c[2]}</b></span></div>`).join('');
+ const mx=Math.max(...R.categories.map(c=>c.count),1);
+ const quests=R.categories.filter(c=>c.category!=='Прочее').slice(0,6).map((c,i)=>`<div class="card quest">
+   <div class="q-rank">#${i+1}</div>
+   <div class="q-ic">${EMO[c.category]||'💬'}</div>
+   <h3>${esc(c.category)}</h3>
+   <div class="tiny">${fmt(c.count)} обращений · ${pct(c.share)} AI-выборки · охват ${fmt(c.eng)}</div>
+   <div class="bar7 ${c.neg>=.5?'neg':''}"><i style="width:${Math.max(6,Math.round(c.count/mx*100))}%"></i></div>
+   ${c.top_post?`<div class="quote ${c.neg>=.5?'neg':''}" style="margin:8px 0 0">${ptext(c.top_post.text)}</div>
+   <div style="margin-top:8px"><span class="pill ind">охват ${fmt(c.top_post.eng)}</span>${c.top_post.url?`<a class="pill" href="${esc(c.top_post.url)}" target="_blank">${linkLabel(c.top_post)}</a>`:''}</div>`:''}
+  </div>`).join('');
+ b.innerHTML=`<div class="mr-hud">${chips}</div>
+  <div class="mr-grid">
+   <div class="card">
+    <h3>🗺️ Карта районов · что волновало жителей</h3>
+    <div class="tiny">нажмите на маркер или район — главная тема и самое резонансное обращение июня</div>
+    <div id="mrmap"></div>
+    <div class="cf" style="margin:10px 0 0"><b>⚠</b>&nbsp;Район удалось определить у ${fmt(R.district_tagged)} из ${fmt(R.n)} обращений — маркер «❔» означает «недостаточно данных за месяц», а не отсутствие проблем в районе.</div>
+   </div>
+   <div class="card ai-sum">
+    <div class="ai-head"><span class="ai-badge">🤖 ИИ-сводка</span><b style="font-family:var(--disp)">${esc(R.title)}</b></div>
+    ${R.ai_summary.map(p=>`<p>${esc(p)}</p>`).join('')}
+    <div class="tiny" style="margin-top:4px">Сводка сформирована ИИ по ${fmt(R.n)} AI-проверенным обращениям за ${esc(R.period)} · проверьте факты перед использованием</div>
+   </div>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>🏆 Топ-темы месяца</h3>
+   <div class="tiny" style="margin-bottom:10px">по AI-проверенной выборке (${fmt(R.n)} из ${fmt(R.archive_total)} собранных) · в каждой — самый резонансный пост</div>
+   <div class="grid g3">${quests}</div></div>`;
+ setTimeout(()=>{try{
+  if(!GEO)return;
+  const _dark=document.documentElement.dataset.theme==='dark';
+  const m=L.map('mrmap',{scrollWheelZoom:false}).setView([43.245,76.92],10);
+  (window._maps=window._maps||[]).push(m);
+  L.tileLayer(`https://{s}.basemaps.cartocdn.com/${_dark?'dark_all':'light_all'}/{z}/{x}/{y}{r}.png`,{attribution:'© OSM, © CARTO',maxZoom:18}).addTo(m);
+  const dm={};R.districts.forEach(d=>dm[d.name]=d);
+  const md=n=>{for(const k in dm){if(n&&n.indexOf(k)>=0)return dm[k];}return null;};
+  const layer=L.geoJSON(GEO,{style:f=>{const d=md(f.properties.nameRu),has=d&&d.count>0;
+    return{color:_dark?'#3a4865':'#b9c4da',weight:1.2,dashArray:has?null:'4 4',
+     fillColor:has?heatColor(Math.min(1,d.neg||0)):(_dark?'rgba(255,255,255,.05)':'#e8edf6'),fillOpacity:has?.5:.35};},
+   onEachFeature:(f,l)=>{const d=md(f.properties.nameRu),has=d&&d.count>0;
+    const top=has?d.posts[0]:null;
+    const pop=has?`<div class="mr-pop"><b>${esc(f.properties.nameRu)}</b><br>Главная тема: <b>${EMO[d.top_category]||'💬'} ${esc(d.top_category)}</b> · обращений: ${d.count}
+      ${top?`<div class="mr-popq">«${esc(top.text.slice(0,180))}${top.text.length>180?'…':''}»</div>${top.url?`<a href="${esc(top.url)}" target="_blank">${linkLabel(top)}</a>`:''}`:''}</div>`
+     :`<div class="mr-pop"><b>${esc(f.properties.nameRu)}</b><br><span style="color:var(--ink3)">Недостаточно данных за месяц: ни в одном обращении район не был определён.</span></div>`;
+    l.bindPopup(pop);
+    const icon=L.divIcon({className:'',html:`<div class="mr-pin${has?'':' ghost'}">${has?(EMO[d.top_category]||'💬'):'❔'}${has?`<span class="mr-cnt">${d.count}</span>`:''}</div>`,iconSize:[46,46],iconAnchor:[23,23]});
+    L.marker(l.getBounds().getCenter(),{icon}).addTo(m).bindPopup(pop);
+    l.on('mouseover',()=>l.setStyle({weight:2.6,color:'#4f46e5'}));l.on('mouseout',()=>layer.resetStyle(l));}}).addTo(m);
+  const fit=()=>{try{m.invalidateSize();m.fitBounds(layer.getBounds(),{padding:[10,10]});}catch(e){}};
+  fit();
+  // карта создаётся в скрытой вкладке (контейнер нулевого размера) — переподгоняем при первом показе
+  new IntersectionObserver((es,o)=>{es.forEach(e=>{if(e.isIntersecting){setTimeout(fit,90);o.disconnect();}});}).observe(document.getElementById('mrmap'));
+ }catch(e){}},120);
+})();
+
 /* 10. ИНДЕКС НАПРЯЖЁННОСТИ + ТОНАЛЬНОСТЬ */
 (function(){const b=sec(10,'Эмоциональный профиль города','напряжённость и тональность по темам','analytics');
  const v=D.tension.value,ang=-90+v/100*180,col=v<25?'var(--green)':v<50?'#eab308':v<75?'var(--amber)':'var(--rose)';
@@ -850,8 +1034,14 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
 
 /* 11. ДИНАМИКА + СТРУКТУРА */
 (function(){const b=sec(11,'Динамика и структура','объём по неделям · доли категорий','analytics');
+ const wdCard=(D.weekday_topics||[]).map(w=>`<div class="card" style="padding:10px 12px">
+    <div class="tiny" style="font-weight:700;margin-bottom:6px">${esc(w.day)}</div>
+    ${w.top.length?w.top.map(t=>`<div class="tiny" style="display:flex;justify-content:space-between;gap:8px;margin:2px 0"><span>${esc(t.category)}</span><b>${fmt(t.count)}</b></div>`).join(''):'<div class="tiny" style="opacity:.5">нет данных</div>'}
+  </div>`).join('');
  b.innerHTML=`<div class="grid g2"><div class="card"><h3>Динамика обращений по неделям</h3><canvas id="tl" height="150"></canvas></div>
-   <div class="card"><h3>Распределение по категориям</h3><canvas id="ct" height="150"></canvas></div></div>`;
+   <div class="card"><h3>Распределение по категориям</h3><canvas id="ct" height="150"></canvas></div></div>
+   <div class="card" style="margin-top:14px"><h3>Темы по дням недели</h3><div class="tiny" style="margin-bottom:8px">топ-3 категории по объёму обращений в этот день недели, за весь период</div>
+     <div class="grid" style="grid-template-columns:repeat(7,1fr);gap:8px">${wdCard}</div></div>`;
  setTimeout(()=>{const _cs=getComputedStyle(document.documentElement),cv=n=>_cs.getPropertyValue(n).trim();
   Chart.defaults.color=cv('--ink2')||'#5c6b86';Chart.defaults.borderColor=cv('--line')||'#e9edf6';Chart.defaults.font.family='Inter';
   const ind=cv('--indigo')||'#6366f1';
@@ -963,7 +1153,7 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
    <p><b>Очистка (жёсткая).</b> Удалено: реклама/коммерция — ${fmt(r.junk)}; оффтоп (не городские темы) — ${fmt(r.offtopic||0)}; дубликаты — ${fmt(r.dup)}; короткие/ссылки — ${fmt(r.short)}; не про Алматы — ${fmt(r.not_almaty)}; брендированный контент — ${fmt(r.branded)}. Правила покрывают русский и казахский (телефоны, прайсы, «жазыңыз», промо). Оставлены только гражданские темы и явные жалобы.</p>
    <p><b>Тональность.</b> Для Facebook используются реальные реакции (😡 angry + 😢 sad → негатив, ❤ love/care → позитив) и словари ru/kk; для Instagram — словарный метод. Категории и районы — по ключевым словам и упоминаниям локаций.</p>
    <p><b>Метрики достоверны:</b> лайки/комментарии/репосты/реакции берутся напрямую из Meta Content Library (без «фантомных» чисел).</p>
-   ${M.ai_verified?`<p><b>AI-проверка (xAI Grok).</b> Каждый показанный пост подтверждён моделью как реальная городская тема Алматы; реклама, заказные/проплаченные и нерелевантные посты удалены, категория и острота выставлены ИИ. Поэтому в дашборде только проверенные обращения.</p>`:''}
+   ${M.ai_verified?`<p><b>AI-проверка (LLM-классификатор).</b> Каждый показанный пост подтверждён моделью как реальная городская тема Алматы; реклама, заказные/проплаченные и нерелевантные посты удалены, категория и острота выставлены ИИ. Поэтому в дашборде только проверенные обращения.</p>`:''}
    <p><b>Ссылки на посты.</b> Для Facebook — прямой permalink на публикацию; для Instagram публичной ссылки в выгрузке нет, поэтому ведёт в Meta Content Library (требует доступа).</p>
    <p><b>Оговорка.</b> Метрики и классификация могут содержать ошибки; перед управленческими решениями рекомендуется верификация. Прогнозы иллюстративны.</p>
    </div></details>`;
@@ -971,7 +1161,7 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
 
 /* САЙДБАР-НАВИГАЦИЯ + СТРАНИЦЫ */
 (function(){
- const NAVIC={overview:'▣',analytics:'📊',map:'🗺',actions:'✔',posts:'✉',voice:'💬',methodology:'⚙'};
+ const NAVIC={overview:'▣',month:'🗓',analytics:'📊',map:'🗺',actions:'✔',posts:'✉',voice:'💬',methodology:'⚙'};
  const sbnav=document.getElementById('sbnav');
  PAGE_DEFS.forEach(([id,label])=>{const t=document.createElement('button');t.type='button';t.className='sb-item';t.dataset.page=id;
   t.innerHTML=`<span class="sb-ic">${NAVIC[id]||'•'}</span><span>${esc(label)}</span>`;
@@ -1000,7 +1190,11 @@ window._sendFeedback=async function(btn,verdict){
   if(!r.ok){throw new Error('HTTP '+r.status);}
   localStorage.setItem('fb_'+meta.id,verdict);
   _paintFeedback(wrap,verdict);
- }catch(e){wrap.querySelectorAll('.fb-btn').forEach(b=>b.disabled=false);}
+ }catch(e){
+  console.error('Feedback save failed:', e);
+  wrap.querySelectorAll('.fb-btn').forEach(b=>b.disabled=false);
+  const note=wrap.querySelector('.fb-note');if(note)note.textContent='⚠ Не сохранилось — сервер фидбека недоступен';
+ }
 };
 function _paintFeedback(wrap,verdict){
  wrap.querySelectorAll('.fb-btn').forEach(b=>{b.disabled=true;b.classList.toggle('voted',b.classList.contains(verdict));});
