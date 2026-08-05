@@ -22,9 +22,5 @@ jobs:
             | python3 -c "import json,sys; d=json.load(sys.stdin); print('id:', d.get('id')); print('accountId:', d.get('accountId'))"
           echo ""
           echo "--- Что хранится в секретах (длина, первые/последние символы, без утечки целиком) ---"
-          python3 -c "
-import os
-for k in ('VERCEL_ORG_ID','VERCEL_PROJECT_ID'):
-    v = os.environ.get(k,'')
-    print(f'{k}: len={len(v)} value={v[:6]}...{v[-4:] if len(v)>10 else v}')
-"
+          echo "VERCEL_ORG_ID: len=${#VERCEL_ORG_ID} value=${VERCEL_ORG_ID:0:6}...${VERCEL_ORG_ID: -4}"
+          echo "VERCEL_PROJECT_ID: len=${#VERCEL_PROJECT_ID} value=${VERCEL_PROJECT_ID:0:6}...${VERCEL_PROJECT_ID: -4}"
