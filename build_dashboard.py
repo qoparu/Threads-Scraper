@@ -758,7 +758,10 @@ def build(posts, all_feed, stats):
     negitems = [p for p in posts if p["severity"] >= 4 or p["sentiment"] == "негатив"]
     negwords = top_terms(negitems, 16, with_count=True)
 
-    districts = Counter(p["district"] for p in posts if p["district"])
+    # Только 8 городских районов (см. CITY_DISTRICTS) — иначе редкие варианты
+    # написания/комбо-районы/районы области с 1-2 постами (neg часто =100% на
+    # таком объёме) забивают топ "самые напряжённые районы" мусором.
+    districts = Counter(p["district"] for p in posts if p["district"] in CITY_DISTRICTS)
     dist_rows = [{"name": k, "count": v, "neg": neg_share([p for p in posts if p["district"] == k])}
                  for k, v in districts.most_common()]
 
