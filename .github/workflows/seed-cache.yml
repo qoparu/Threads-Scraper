@@ -1,0 +1,41 @@
+name: Seed persistent cache from release (one-off)
+
+# Ручной запуск: заливает архив (data/) из GitHub Release в кэш GitHub Actions,
+# чтобы почасовой hourly-scrape.yml подхватил полную историю через restore-keys,
+# а не начинал накопление заново. Нужен один раз после переноса на облако.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Тег релиза с архивом (data/*.json)"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download archive from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p data output logs
+          gh release download "${{ github.event.inputs.release_tag }}" \
+            --repo "${{ github.repository }}" \
+            --dir data --clobber
+          ls -la data
+
+      - name: Save as persistent cache
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data
+            output
+            logs
+          key: jaspulse-state-${{ github.run_id }}
