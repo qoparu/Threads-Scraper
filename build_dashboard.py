@@ -784,6 +784,16 @@ def build(posts, all_feed, stats):
         }
         for wd in range(7)
     ]
+    # Полная матрица (все категории, не только топ-3) — для стековой диаграммы
+    # "темы по дням недели" на обзорной странице.
+    _wd_cats_order = [c for c, _ in Counter(
+        p["category"] for p in posts if p["category"] != "Прочее"
+    ).most_common()]
+    weekday_matrix = {
+        "days": WEEKDAY_NAMES,
+        "categories": _wd_cats_order,
+        "counts": {c: [weekday_cats[wd].get(c, 0) for wd in range(7)] for c in _wd_cats_order},
+    }
 
     # ── Хроника: заметные дни + вероятная причина (самый резонансный пост дня) ──
     # У нас нет ленты новостей — «событие» это реконструкция по самому острому/
@@ -887,6 +897,7 @@ def build(posts, all_feed, stats):
         "tension": {"value": tension, "label": tlabel},
         "senti_by_cat": senti_by_cat, "triggers": triggers, "negwords": negwords,
         "districts": dist_rows, "timeline": timeline, "weekday_topics": weekday_topics,
+        "weekday_matrix": weekday_matrix,
         "chronicle": chronicle, "month_review": month_review(posts),
         "platforms": platforms, "langs": langs, "tiers": tiers,
         "top_posts": [sample(p) for p in top_posts],

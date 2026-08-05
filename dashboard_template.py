@@ -720,20 +720,11 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
         <button class="btn" style="margin-left:auto" onclick="if(window.showPage)showPage('actions')">Все →</button></div>
         <div class="nsteps">${nsteps}</div></div>
     </div>
-    <div class="card" style="margin-top:16px"><h3>📅 Хроника: что волновало город</h3>
-      <div class="tiny" style="margin-bottom:4px">заметные дни за период · вероятная причина всплеска — самый резонансный пост дня (реконструкция по источнику, не проверенная новость)</div>
-      ${(()=>{const rows=(D.chronicle||[]).map(c=>{
-        const dt=c.date.split('-'),dd=`${dt[2]}.${dt[1]}`;
-        const sig=c.signature||{},snippet=(sig.text||'').slice(0,110);
-        const link=sig.url?`<a href="${esc(sig.url)}" target="_blank" rel="noopener" class="tiny" style="color:var(--indigo);font-weight:600">источник →</a>`:'';
-        return `<div style="display:flex;gap:12px;padding:10px 0;border-top:1px solid var(--line)">
-          <div style="width:64px;flex:none"><b style="font-size:13px">${esc(dd)}</b><div class="tiny">${esc(c.weekday)}</div></div>
-          <div style="flex:1;min-width:0">
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px"><span class="pill ind">${esc(c.category)}</span><span class="tiny">${c.count} обращений в этот день</span></div>
-            <div class="tiny" style="color:var(--ink2)">${esc(snippet)}${snippet.length>=110?'…':''}</div>
-            ${link}
-          </div></div>`;}).join('');
-        return rows||'<div class="tiny" style="opacity:.6;padding:10px 0">пока недостаточно данных для хроники</div>';})()}
+    <div class="card" style="margin-top:16px"><h3>📊 Что волновало по дням недели</h3>
+      <div class="tiny" style="margin-bottom:8px">темы по дням недели за весь период · клик по теме в легенде — скрыть/показать</div>
+      ${(D.weekday_matrix&&D.weekday_matrix.categories&&D.weekday_matrix.categories.length)?
+        '<div style="position:relative;height:260px"><canvas id="wdchart"></canvas></div>':
+        '<div class="tiny" style="opacity:.6;padding:10px 0">пока недостаточно данных</div>'}
     </div>
    </div>
    <aside class="ov-rail">
@@ -765,6 +756,15 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
        y:{beginAtZero:true,ticks:{maxTicksLimit:4,font:{size:9}},grid:{color:cv('--line')}}}}});
    const pal=['#6366f1','#38bdf8','#2dd4bf','#f6b756','#fb7185','#a78bfa','#f472b6','#34d399'];
    new Chart(document.getElementById('rct'),{type:'doughnut',data:{labels:D.problems.slice(0,7).map(p=>p.category),datasets:[{data:D.problems.slice(0,7).map(p=>p.count),backgroundColor:pal,borderColor:cv('--surface'),borderWidth:2}]},options:{cutout:'60%',plugins:{legend:{position:'right',labels:{boxWidth:9,font:{size:9}}}}}});
+   const wm=D.weekday_matrix;
+   if(wm&&wm.categories&&wm.categories.length&&document.getElementById('wdchart')){
+    new Chart(document.getElementById('wdchart'),{type:'bar',
+     data:{labels:wm.days,datasets:wm.categories.map((c,i)=>({label:c,data:wm.counts[c],backgroundColor:pal[i%pal.length],stack:'s'}))},
+     options:{maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:9,font:{size:9}}},
+       tooltip:{callbacks:{footer:its=>'всего: '+fmt(its.reduce((s,it)=>s+it.parsed.y,0))}}},
+      scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},
+       y:{stacked:true,beginAtZero:true,ticks:{maxTicksLimit:5,font:{size:9}},grid:{color:cv('--line')}}}}});
+   }
   }catch(e){}
  },140);
  function tick(){const now=new Date();const alm=new Date(now.getTime()+(now.getTimezoneOffset()+300)*60000);
