@@ -1,0 +1,28 @@
+name: Debug Vercel link (one-off, no deploy)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Whoami / project visibility
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          echo "--- whoami ---"
+          npx --yes vercel@latest whoami --token="$VERCEL_TOKEN" || true
+          echo "--- project ls ---"
+          npx --yes vercel@latest project ls --token="$VERCEL_TOKEN" || true
+          echo "--- link attempt (read-only test) ---"
+          mkdir -p /tmp/vercel-test && cd /tmp/vercel-test
+          npx --yes vercel@latest link --token="$VERCEL_TOKEN" --yes \
+            --project="$VERCEL_PROJECT_ID" || true
+          echo "--- .vercel/project.json (if link succeeded) ---"
+          cat .vercel/project.json 2>/dev/null || echo "(нет файла — link не прошёл)"
