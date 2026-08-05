@@ -1,8 +1,10 @@
 name: Hourly Threads scrape + dashboard deploy
 
 on:
-  schedule:
-    - cron: "15 * * * *"
+  # Встроенный GitHub-cron ненадёжен по времени (может задерживаться на часы или
+  # пропускать срабатывание при нагрузке на GitHub). Вместо него внешний
+  # будильник (cron-job.org) раз в час дёргает workflow_dispatch через API —
+  # это единственный триггер, чтобы не было двойных/гоняющихся прогонов.
   workflow_dispatch:
     inputs:
       rebuild_only:
