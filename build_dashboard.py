@@ -721,7 +721,7 @@ def build(posts, all_feed, stats):
             continue
         _seen_v.add(key)
         viral_list.append(p)
-        if len(viral_list) >= 6:
+        if len(viral_list) >= 12:
             break
     month_window = window_category_posts(posts, now, 30, max_cats=8, per_cat=6)
     day_window   = window_category_posts(posts, now, 1, max_cats=8, per_cat=8)
