@@ -151,91 +151,82 @@ def _extract_json(content: str) -> Optional[dict]:
 
 # ── Фидбек модератора (👍/👎 на дашборде) → few-shot примеры для промпта ────────
 
-REDIS_URL = os.getenv("REDIS_URL", "")
-# Локальная страховка: зеркало голосов 👍/👎 на диске. Переживает сброс Redis
-# и попадает в state.tgz при переносе (data/ — вне git).
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+# Локальная страховка: зеркало голосов 👍/👎 на диске. Переживает недоступность
+# базы и попадает в state.tgz при переносе (data/ — вне git).
 FEEDBACK_BACKUP = HERE / "data" / "feedback_backup.json"
-_FB_KEYS = ("feedback:up", "feedback:down")
 
 
-def _load_feedback_backup() -> Dict[str, Dict[str, str]]:
-    """Локальная копия: {'feedback:up': {id: json}, 'feedback:down': {id: json}}."""
+def _load_feedback_backup() -> Dict[str, dict]:
+    """Локальная копия: {id: {verdict, text, category, theme, ...}}."""
     try:
-        d = json.loads(FEEDBACK_BACKUP.read_text(encoding="utf-8"))
-        return {k: dict(d.get(k, {})) for k in _FB_KEYS}
+        return json.loads(FEEDBACK_BACKUP.read_text(encoding="utf-8"))
     except Exception:
-        return {k: {} for k in _FB_KEYS}
+        return {}
 
 
-def _save_feedback_backup(data: Dict[str, Dict[str, str]]) -> None:
+def _save_feedback_backup(data: Dict[str, dict]) -> None:
     try:
         FEEDBACK_BACKUP.parent.mkdir(parents=True, exist_ok=True)
         FEEDBACK_BACKUP.write_text(
-            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+            json.dumps(data, ensure_ascii=False, indent=2, default=str), encoding="utf-8"
         )
     except Exception as e:
         log.warning(f"Не удалось записать локальную копию фидбека: {e}")
 
 
-def _sync_feedback() -> Dict[str, Dict[str, str]]:
-    """Зеркалит Redis <-> локальный файл, возвращает объединённые голоса {key: {id: json}}.
+def _sync_feedback() -> Dict[str, dict]:
+    """Тянет голоса модератора из Postgres, мержит с локальной копией {id: meta}.
 
-    Redis жив     -> объединяю с локальной копией, пишу копию на диск, недостающее
-                     доливаю обратно в Redis (само-восстановление после сброса базы).
-    Redis мёртв   -> работаю по локальной копии (голоса не теряются).
+    БД жива  -> объединяю с локальной копией (БД приоритетнее по значению), пишу копию на диск.
+    БД мёртва -> работаю по локальной копии (голоса не теряются).
     """
     local = _load_feedback_backup()
-    if not REDIS_URL:
+    if not DATABASE_URL:
         return local
 
     try:
-        import redis  # noqa: WPS433
-        client = redis.from_url(REDIS_URL, socket_timeout=5, decode_responses=True)
-        redis_data = {k: (client.hgetall(k) or {}) for k in _FB_KEYS}
+        import psycopg2  # noqa: WPS433
+        import psycopg2.extras  # noqa: WPS433
+        conn = psycopg2.connect(DATABASE_URL, connect_timeout=5)
+        try:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(
+                    "CREATE TABLE IF NOT EXISTS feedback ("
+                    " id TEXT PRIMARY KEY, verdict TEXT NOT NULL, text TEXT, category TEXT,"
+                    " theme TEXT, sentiment TEXT, severity INTEGER, platform TEXT,"
+                    " voted_at TIMESTAMPTZ NOT NULL DEFAULT now())"
+                )
+                conn.commit()
+                cur.execute(
+                    "SELECT id, verdict, text, category, theme, sentiment, severity, platform, voted_at"
+                    " FROM feedback ORDER BY voted_at ASC"
+                )
+                rows = cur.fetchall()
+        finally:
+            conn.close()
     except Exception as e:
         log.warning(
-            f"Redis недоступен ({e}) — беру фидбек из локальной копии {FEEDBACK_BACKUP.name}"
+            f"Postgres недоступен ({e}) — беру фидбек из локальной копии {FEEDBACK_BACKUP.name}"
         )
         return local
 
-    merged: Dict[str, Dict[str, str]] = {k: {} for k in _FB_KEYS}
-    restored = 0
-    for k in _FB_KEYS:
-        # Redis приоритетнее по значению; локальные id, которых нет в Redis, — доливаем назад
-        merged[k] = {**local.get(k, {}), **redis_data.get(k, {})}
-        missing = {i: v for i, v in merged[k].items() if i not in redis_data.get(k, {})}
-        if missing:
-            try:
-                client.hset(k, mapping=missing)
-                restored += len(missing)
-            except Exception as e:
-                log.warning(f"Не удалось восстановить {k} в Redis: {e}")
-
-    if restored:
-        log.info(f"Восстановил в Redis {restored} голос(ов) из локальной копии")
+    remote = {r["id"]: dict(r) for r in rows}
+    merged = {**local, **remote}
     _save_feedback_backup(merged)
-    log.info(
-        f"Фидбек-зеркало: up={len(merged['feedback:up'])} "
-        f"down={len(merged['feedback:down'])} -> data/{FEEDBACK_BACKUP.name}"
-    )
+    up = sum(1 for v in merged.values() if v.get("verdict") == "up")
+    down = sum(1 for v in merged.values() if v.get("verdict") == "down")
+    log.info(f"Фидбек-зеркало: up={up} down={down} -> data/{FEEDBACK_BACKUP.name}")
     return merged
 
 
 def _fetch_feedback_examples(limit: int = 15) -> str:
-    """Собирает few-shot блок из голосов модератора (Redis + локальное зеркало)."""
+    """Собирает few-shot блок из голосов модератора (Postgres + локальное зеркало)."""
     data = _sync_feedback()
+    items = list(data.values())
 
-    def _items(key: str) -> List[dict]:
-        out: List[dict] = []
-        for v in data.get(key, {}).values():
-            try:
-                out.append(json.loads(v))
-            except Exception:
-                continue
-        return out[-limit:]
-
-    bad = _items("feedback:down")
-    good = _items("feedback:up")
+    bad = [it for it in items if it.get("verdict") == "down"][-limit:]
+    good = [it for it in items if it.get("verdict") == "up"][-limit:]
     if not bad and not good:
         return ""
 
