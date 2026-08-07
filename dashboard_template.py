@@ -721,7 +721,7 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
         <div class="nsteps">${nsteps}</div></div>
     </div>
     <div class="card" style="margin-top:16px"><h3>📊 Что волновало по дням недели</h3>
-      <div class="tiny" style="margin-bottom:8px">темы по дням недели за весь период · клик по теме в легенде — скрыть/показать</div>
+      <div class="tiny" style="margin-bottom:8px">темы по дням недели за ${esc(M.period)} · клик по теме в легенде — скрыть/показать</div>
       ${(D.weekday_matrix&&D.weekday_matrix.categories&&D.weekday_matrix.categories.length)?
         '<div style="position:relative;height:260px"><canvas id="wdchart"></canvas></div>':
         '<div class="tiny" style="opacity:.6;padding:10px 0">пока недостаточно данных</div>'}
@@ -731,8 +731,6 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
     <div class="card ov-mapcard"><h3>🗺️ Районы города · напряжённость</h3>
       <div id="rmap"></div>
       <div class="ov-index"><span>Индекс напряжённости</span><b>${D.tension.value}/100</b></div></div>
-    <div class="card"><h3 style="font-size:14px">Динамика обращений · по неделям</h3><div style="position:relative;height:160px"><canvas id="rtl"></canvas></div></div>
-    <div class="card"><h3 style="font-size:14px">Структура по категориям</h3><canvas id="rct" height="140"></canvas></div>
    </aside>
   </div>`;
  setTimeout(()=>{try{
@@ -749,19 +747,17 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
   }catch(e){}
   try{const cs=getComputedStyle(document.documentElement),cv=n=>cs.getPropertyValue(n).trim();
    Chart.defaults.color=cv('--ink2');Chart.defaults.borderColor=cv('--line');Chart.defaults.font.family='Inter';
-   const wkLbl=w=>{const m=String(w).match(/(\d{4})-W(\d{2})/);if(!m)return w;const y=+m[1],wk=+m[2];const d=new Date(y,0,1+(wk-1)*7);const dow=d.getDay()||7;d.setDate(d.getDate()-dow+1);return d.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit'});};
-   new Chart(document.getElementById('rtl'),{type:'line',data:{labels:D.timeline.map(t=>wkLbl(t.week)),datasets:[{label:'обращений',data:D.timeline.map(t=>t.count),borderColor:'#38bdf8',backgroundColor:'rgba(56,189,248,.15)',fill:true,tension:.35,pointRadius:2,pointHoverRadius:5}]},
-     options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{title:it=>'неделя от '+it[0].label,label:it=>fmt(it.parsed.y)+' обращений'}}},
-      scales:{x:{ticks:{maxRotation:0,autoSkip:true,maxTicksLimit:6,font:{size:9}},grid:{display:false}},
-       y:{beginAtZero:true,ticks:{maxTicksLimit:4,font:{size:9}},grid:{color:cv('--line')}}}}});
    const pal=['#6366f1','#38bdf8','#2dd4bf','#f6b756','#fb7185','#a78bfa','#f472b6','#34d399'];
-   new Chart(document.getElementById('rct'),{type:'doughnut',data:{labels:D.problems.slice(0,7).map(p=>p.category),datasets:[{data:D.problems.slice(0,7).map(p=>p.count),backgroundColor:pal,borderColor:cv('--surface'),borderWidth:2}]},options:{cutout:'60%',plugins:{legend:{position:'right',labels:{boxWidth:9,font:{size:9}}}}}});
    const wm=D.weekday_matrix;
    if(wm&&wm.categories&&wm.categories.length&&document.getElementById('wdchart')){
+    const totals=wm.days.map((_,i)=>wm.categories.reduce((s,c)=>s+(wm.counts[c][i]||0),0));
     new Chart(document.getElementById('wdchart'),{type:'bar',
-     data:{labels:wm.days,datasets:wm.categories.map((c,i)=>({label:c,data:wm.counts[c],backgroundColor:pal[i%pal.length],stack:'s'}))},
+     data:{labels:wm.days,datasets:[
+       ...wm.categories.map((c,i)=>({type:'bar',label:c,data:wm.counts[c],backgroundColor:pal[i%pal.length],stack:'s'})),
+       {type:'line',label:'итого',data:totals,borderColor:cv('--ink'),backgroundColor:'transparent',borderWidth:2,tension:.3,pointRadius:3,pointBackgroundColor:cv('--ink'),order:0},
+     ]},
      options:{maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:9,font:{size:9}}},
-       tooltip:{callbacks:{footer:its=>'всего: '+fmt(its.reduce((s,it)=>s+it.parsed.y,0))}}},
+       tooltip:{callbacks:{footer:its=>'всего: '+fmt(totals[its[0].dataIndex])}}},
       scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},
        y:{stacked:true,beginAtZero:true,ticks:{maxTicksLimit:5,font:{size:9}},grid:{color:cv('--line')}}}}});
    }

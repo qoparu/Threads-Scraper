@@ -600,7 +600,11 @@ def month_review(posts):
 
 def build(posts, all_feed, stats):
     dts = [d for d in (parse_dt(p["created_at"]) for p in posts) if d]
-    now = max(dts) if dts else datetime.now(timezone.utc)
+    # Реальное текущее время, а не дата самого свежего поста в корпусе — иначе
+    # если корпус отстаёт (например, свежие данные ещё не собрались), "за сутки"
+    # молча считается от старой даты и в него попадают посты недельной/месячной
+    # давности, подписанные как "сегодня".
+    now = datetime.now(timezone.utc)
 
     cats = defaultdict(list)
     for p in posts:
