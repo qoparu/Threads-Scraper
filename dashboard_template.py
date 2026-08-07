@@ -729,7 +729,7 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
     <div class="card" style="margin-top:16px"><h3>📊 Что волновало по дням недели</h3>
       <div class="tiny" style="margin-bottom:8px">темы по дням недели за ${esc(M.period)} · клик по теме в легенде — скрыть/показать</div>
       ${(D.weekday_matrix&&D.weekday_matrix.categories&&D.weekday_matrix.categories.length)?
-        '<div style="position:relative;height:260px"><canvas id="wdchart"></canvas></div>':
+        '<div style="position:relative;height:380px"><canvas id="wdchart"></canvas></div>':
         '<div class="tiny" style="opacity:.6;padding:10px 0">пока недостаточно данных</div>'}
     </div>
    </div>
