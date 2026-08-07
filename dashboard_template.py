@@ -448,7 +448,13 @@ html[data-theme="dark"] .gsearch:focus{background:var(--surface)}
       }
     }).catch(function(){});
   }
+  var FRESH_MIN=15; // ниже этого порога пересборка почти наверняка ничего не изменит
   btn.addEventListener('click',function(){
+    var lastMin=M.updated_iso?Math.round((Date.now()-new Date(M.updated_iso))/60000):null;
+    if(lastMin!==null&&lastMin>=0&&lastMin<FRESH_MIN){
+      var ok=confirm('Дашборд уже обновлялся '+(lastMin<1?'меньше минуты':lastMin+' мин')+' назад — новых данных почти наверняка ещё нет. Всё равно запустить сбор?');
+      if(!ok)return;
+    }
     btn.disabled=true;btn.textContent='Запускаю…';
     var bg=ensureModal();bg.classList.add('show');
     bg.querySelector('#rf-title').textContent='Запускаем сбор…';
