@@ -1,17 +1,14 @@
-// Принимает голос модератора по посту (👍/👎) и пишет его в Redis.
-// HSET feedback:up / feedback:down <id> <json-метаданные поста>
-// При смене голоса удаляет запись из противоположного хэша.
+// Принимает голос модератора по посту (👍/👎) и пишет его в Postgres (Neon).
+// Одна строка на пост: смена голоса просто перезаписывает verdict/voted_at.
 
-const { createClient } = require("redis");
+const { neon } = require("@neondatabase/serverless");
 
-let clientPromise;
-function getClient() {
-  if (!clientPromise) {
-    const client = createClient({ url: process.env.REDIS_URL });
-    client.on("error", (e) => console.error("Redis error:", e));
-    clientPromise = client.connect().then(() => client);
+let sqlPromise;
+function getSql() {
+  if (!sqlPromise) {
+    sqlPromise = Promise.resolve(neon(process.env.DATABASE_URL));
   }
-  return clientPromise;
+  return sqlPromise;
 }
 
 module.exports = async (req, res) => {
@@ -20,8 +17,8 @@ module.exports = async (req, res) => {
     return;
   }
 
-  if (!process.env.REDIS_URL) {
-    res.status(500).json({ error: "Redis not configured" });
+  if (!process.env.DATABASE_URL) {
+    res.status(500).json({ error: "Postgres not configured" });
     return;
   }
 
@@ -37,23 +34,36 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const meta = {
-    id,
-    text: typeof body.text === "string" ? body.text.slice(0, 500) : "",
-    category: body.category || "",
-    theme: body.theme || "",
-    sentiment: body.sentiment || "",
-    severity: body.severity || null,
-    platform: body.platform || "",
-    voted_at: new Date().toISOString(),
-  };
+  const text = typeof body.text === "string" ? body.text.slice(0, 500) : "";
+  const category = body.category || "";
+  const theme = body.theme || "";
+  const sentiment = body.sentiment || "";
+  const severity = body.severity == null || body.severity === "" ? null : Number(body.severity);
+  const platform = body.platform || "";
 
   try {
-    const client = await getClient();
-    const target = verdict === "up" ? "feedback:up" : "feedback:down";
-    const other = verdict === "up" ? "feedback:down" : "feedback:up";
-    await client.hSet(target, id, JSON.stringify(meta));
-    await client.hDel(other, id);
+    const sql = await getSql();
+    await sql`
+      CREATE TABLE IF NOT EXISTS feedback (
+        id TEXT PRIMARY KEY,
+        verdict TEXT NOT NULL,
+        text TEXT,
+        category TEXT,
+        theme TEXT,
+        sentiment TEXT,
+        severity INTEGER,
+        platform TEXT,
+        voted_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `;
+    await sql`
+      INSERT INTO feedback (id, verdict, text, category, theme, sentiment, severity, platform, voted_at)
+      VALUES (${id}, ${verdict}, ${text}, ${category}, ${theme}, ${sentiment}, ${severity}, ${platform}, now())
+      ON CONFLICT (id) DO UPDATE SET
+        verdict = EXCLUDED.verdict, text = EXCLUDED.text, category = EXCLUDED.category,
+        theme = EXCLUDED.theme, sentiment = EXCLUDED.sentiment, severity = EXCLUDED.severity,
+        platform = EXCLUDED.platform, voted_at = EXCLUDED.voted_at
+    `;
     res.status(200).json({ ok: true });
   } catch (e) {
     res.status(502).json({ error: String(e) });
