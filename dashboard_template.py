@@ -97,6 +97,7 @@ section{padding:30px 0 4px;scroll-margin-top:74px}
 .muted{color:var(--ink2)}.tiny{font-size:11.5px;color:var(--ink3)}
 .lead-num{font-family:var(--disp);font-size:30px;font-weight:800}
 .accentbar{position:absolute;left:0;top:18px;bottom:18px;width:4px;border-radius:4px}
+.cat-corner{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 1px 4px rgba(0,0,0,.18)}
 .rank{position:absolute;top:14px;right:18px;font-family:var(--disp);font-size:30px;font-weight:800;color:var(--track)}
 .pill{display:inline-flex;align-items:center;font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:30px;border:1px solid var(--line);color:var(--ink2);background:var(--soft);margin:2px 4px 2px 0;white-space:nowrap}
 .pill.neg{color:var(--neg-ink);background:var(--neg-bg);border-color:var(--neg-bd)}
@@ -497,6 +498,18 @@ const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"
 const sc=s=>'s'+Math.max(1,Math.min(5,s||1));
 const fmtDate=s=>{const d=new Date(s);return isNaN(d)?'':d.toLocaleDateString('ru-RU',{day:'2-digit',month:'short',year:'2-digit'});};
 const COL={'🔴':'var(--rose)','🟠':'var(--amber)','🟡':'#eab308','🟢':'var(--green)'};
+// Цвет + эмодзи по категории — чтобы карточку можно было опознать не читая текст.
+const CAT_META={
+ 'Дороги и транспорт':['🚗','#6366f1'],'ЖКХ и инфраструктура':['🏠','#38bdf8'],
+ 'Вода и канализация':['🚰','#2dd4bf'],'Электроснабжение':['⚡','#f6b756'],
+ 'Экология и воздух':['🌫️','#22c55e'],'Благоустройство и мусор':['🗑️','#a78bfa'],
+ 'Строительство и застройка':['🏗️','#f472b6'],'Безопасность и правопорядок':['🚨','#fb7185'],
+ 'Здравоохранение':['🏥','#ef4444'],'Образование':['🎓','#0ea5e9'],
+ 'Госуслуги и бюрократия':['📋','#94a3b8'],'Цены и социальные вопросы':['💰','#eab308'],
+ 'Прочее':['📌','#64748b'],
+};
+function catBadge(cat){const m=CAT_META[cat]||CAT_META['Прочее'];
+ return `<div class="cat-corner" style="background:${m[1]}" title="${esc(cat)}">${m[0]}</div>`;}
 const reacEng=r=>r?(r.angry+r.sad+r.love+r.care+r.haha+r.wow):0;
 const linkLabel=p=>p.platform==='Threads'?'открыть в Threads ↗':p.platform==='Facebook'?'открыть пост ↗':'смотреть в Meta ↗';
 const D=DATA,M=D.meta,app=document.getElementById('app');const SECTIONS=[];
@@ -514,7 +527,8 @@ function ptext(t,expanded){const id='p'+Math.random().toString(36).slice(2,8);
 function mefmt(p){return [p.platform,p.lang,p.tier,p.owner?('@'+p.owner):'',fmtDate(p.created_at)].filter(Boolean).join(' · ');}
 function postCard(p,extra){const neg=p.severity>=4||p.sentiment==='негатив';
  return `<div class="card"><div class="accentbar" style="background:${neg?'var(--rose)':'var(--indigo)'}"></div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+  ${catBadge(p.category)}
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;padding-right:40px">
    <span class="sevtag ${sc(p.severity)}">острота ${p.severity}</span>
    <span class="pill ind">${esc(p.category)}</span>
    ${p.district?`<span class="pill">📍 ${esc(p.district)}</span>`:''}
