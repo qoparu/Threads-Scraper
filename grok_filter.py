@@ -27,6 +27,7 @@ import json
 import time
 import logging
 from pathlib import Path
+from collections import Counter
 from typing import List, Dict, Optional
 
 import requests
@@ -339,6 +340,51 @@ def classify_batch(batch: List[dict], api_key: str, system_prompt: str, retries:
             log.warning(f"  Ошибка запроса (попытка {attempt}): {e}")
             time.sleep(3 * attempt)
     log.error("  Пачка не классифицирована после всех попыток")
+    return {}
+
+
+def summarize_districts(dist_posts: Dict[str, List[dict]], api_key: str, retries: int = 2) -> Dict[str, str]:
+    """Короткая (1 предложение) нейтральная сводка «чем волновали жителей» по
+    каждому району — по уже классифицированным категориям/темам постов, без
+    выдумывания подробностей, которых нет в данных. При недоступности ИИ или
+    ошибке ответа тихо возвращает {} — вызывающий код просто не покажет блок."""
+    dist_posts = {k: v for k, v in dist_posts.items() if v}
+    if not dist_posts:
+        return {}
+    payload = {}
+    for name, items in dist_posts.items():
+        cats = Counter(p.get("category") for p in items if p.get("category") and p.get("category") != "Прочее")
+        themes = [p.get("theme") for p in items if p.get("theme")]
+        payload[name] = {
+            "top_categories": [c for c, _ in cats.most_common(4)],
+            "sample_themes": themes[:12],
+        }
+    user_msg = (
+        "По районам ниже — категории и краткие темы обращений жителей за период. "
+        "Для каждого района верни ОДНО короткое нейтральное предложение на русском "
+        "(до 20 слов): чем в целом были обеспокоены жители, строго по фактам из "
+        "данных, без додумывания подробностей и без грубых/оценочных слов, которых "
+        "нет в переданных темах. Верни JSON {\"<район>\":\"<предложение>\", ...} "
+        "по каждому переданному району.\n\n" + json.dumps(payload, ensure_ascii=False)
+    )
+    body = {
+        "model": MODEL,
+        "messages": [{"role": "user", "content": user_msg}],
+        "temperature": 0.2,
+        "response_format": {"type": "json_object"},
+    }
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    for attempt in range(1, retries + 1):
+        try:
+            r = requests.post(API_URL, headers=headers, json=body, timeout=60)
+            r.raise_for_status()
+            content = r.json()["choices"][0]["message"]["content"]
+            parsed = _extract_json(content)
+            if isinstance(parsed, dict):
+                return {k: v.strip() for k, v in parsed.items() if isinstance(v, str) and v.strip()}
+        except Exception as e:
+            log.warning(f"Сводка по районам не собралась (попытка {attempt}): {e}")
+            time.sleep(2 * attempt)
     return {}
 
 

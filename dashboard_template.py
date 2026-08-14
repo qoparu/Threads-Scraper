@@ -761,7 +761,7 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
    const dc={};D.districts.forEach(d=>dc[d.name]=d);
    const md=n=>{for(const k in dc){if(n&&n.indexOf(k.replace(/ район.*/,''))>=0)return dc[k];}return null;};
    if(typeof GEO!=='undefined'&&GEO){const layer=L.geoJSON(GEO,{style:f=>{const d=md(f.properties.nameRu);return {color:_dark?'#3a4865':'#b9c4da',weight:1,fillColor:d?heatColor(d.neg||0):(_dark?'rgba(255,255,255,.06)':'#e8edf6'),fillOpacity:.82};},
-     onEachFeature:(f,l)=>{const d=md(f.properties.nameRu);l.bindPopup(`<b>${esc(f.properties.nameRu||'')}</b><br>Обращений: ${d?fmt(d.count):0} · негатив ${d?pct(d.neg||0):'—'}`);}}).addTo(rm);
+     onEachFeature:(f,l)=>{const d=md(f.properties.nameRu);l.bindPopup(`<b>${esc(f.properties.nameRu||'')}</b><br>Обращений: ${d?fmt(d.count):0} · негатив ${d?pct(d.neg||0):'—'}${d&&d.summary?`<div class="mr-popq" style="margin-top:6px">${esc(d.summary)}</div>`:''}`);}}).addTo(rm);
      try{rm.fitBounds(layer.getBounds(),{padding:[6,6]});}catch(e){}}
    setTimeout(()=>{try{rm.invalidateSize();}catch(e){}},220);
   }catch(e){}
