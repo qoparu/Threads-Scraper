@@ -769,6 +769,23 @@ def build(posts, all_feed, stats):
     dist_rows = [{"name": k, "count": v, "neg": neg_share([p for p in posts if p["district"] == k])}
                  for k, v in districts.most_common()]
 
+    # Короткая ИИ-сводка «чем в целом волновали жителей» по каждому району —
+    # из уже классифицированных категорий/тем, без нового вызова на каждый пост.
+    # Без ключа/при ошибке молча пропускаем — карта показывает счётчики и так.
+    import os as _os
+    _llm_key = (_os.getenv("LLM_API_KEY") or _os.getenv("DEEPSEEK_API_KEY")
+                or _os.getenv("GROQ_API_KEY") or _os.getenv("GROK_API_KEY") or "").strip()
+    dist_summaries = {}
+    if _llm_key and dist_rows:
+        try:
+            import grok_filter as gf
+            dist_posts = {row["name"]: [p for p in posts if p["district"] == row["name"]] for row in dist_rows}
+            dist_summaries = gf.summarize_districts(dist_posts, _llm_key)
+        except Exception as e:
+            log.warning(f"Сводка по районам недоступна: {e}")
+    for row in dist_rows:
+        row["summary"] = dist_summaries.get(row["name"], "")
+
     weeks = defaultdict(int)
     for p in posts:
         d = parse_dt(p["created_at"])

@@ -345,12 +345,12 @@ html[data-theme="dark"] .gsearch:focus{background:var(--surface)}
 .ov-index b{font-family:var(--disp);font-size:16px;color:var(--rose)}
 @media(max-width:760px){.sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);transition:.25s;box-shadow:var(--sh2)}.sidebar.open{transform:none}.sb-toggle{display:grid;place-items:center}.content{padding:56px 14px 40px}.topbar .gsearch{display:none}}
 /* ===== Обзор месяца: игровая карта районов + ИИ-сводка ===== */
-.mr-hud{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-.mr-chip{display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:9px 15px;box-shadow:var(--sh);font-size:12px;color:var(--ink2)}
-.mr-chip .ic{font-size:18px}.mr-chip b{font-family:var(--disp);font-size:17px;color:var(--ink)}
+.mr-hud{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.mr-chip{display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:7px 12px;box-shadow:var(--sh);font-size:11.5px;color:var(--ink2)}
+.mr-chip .ic{font-size:15px}.mr-chip b{font-family:var(--disp);font-size:15px;color:var(--ink)}
 .mr-grid{display:grid;grid-template-columns:1.55fr 1fr;gap:16px;align-items:start}
 @media(max-width:1080px){.mr-grid{grid-template-columns:1fr}}
-#mrmap{height:480px;border-radius:14px;overflow:hidden;margin-top:8px}
+#mrmap{height:380px;border-radius:14px;overflow:hidden;margin-top:8px}
 .mr-pin{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-size:22px;background:var(--surface);border:2px solid var(--indigo);box-shadow:0 4px 14px rgba(79,70,229,.35);position:relative;cursor:pointer;transition:transform .15s;animation:mrdrop .55s cubic-bezier(.2,.9,.3,1.4)}
 .mr-pin:hover{transform:scale(1.14)}
 .mr-pin.ghost{border:2px dashed var(--dotbg);opacity:.6;box-shadow:none;font-size:17px}
@@ -761,7 +761,7 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
    const dc={};D.districts.forEach(d=>dc[d.name]=d);
    const md=n=>{for(const k in dc){if(n&&n.indexOf(k.replace(/ район.*/,''))>=0)return dc[k];}return null;};
    if(typeof GEO!=='undefined'&&GEO){const layer=L.geoJSON(GEO,{style:f=>{const d=md(f.properties.nameRu);return {color:_dark?'#3a4865':'#b9c4da',weight:1,fillColor:d?heatColor(d.neg||0):(_dark?'rgba(255,255,255,.06)':'#e8edf6'),fillOpacity:.82};},
-     onEachFeature:(f,l)=>{const d=md(f.properties.nameRu);l.bindPopup(`<b>${esc(f.properties.nameRu||'')}</b><br>Обращений: ${d?fmt(d.count):0} · негатив ${d?pct(d.neg||0):'—'}`);}}).addTo(rm);
+     onEachFeature:(f,l)=>{const d=md(f.properties.nameRu);l.bindPopup(`<b>${esc(f.properties.nameRu||'')}</b><br>Обращений: ${d?fmt(d.count):0} · негатив ${d?pct(d.neg||0):'—'}${d&&d.summary?`<div class="mr-popq" style="margin-top:6px">${esc(d.summary)}</div>`:''}`);}}).addTo(rm);
      try{rm.fitBounds(layer.getBounds(),{padding:[6,6]});}catch(e){}}
    setTimeout(()=>{try{rm.invalidateSize();}catch(e){}},220);
   }catch(e){}
