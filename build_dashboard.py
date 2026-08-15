@@ -247,6 +247,45 @@ def neg_share(items):
     return round(sum(1 for i in items if i["severity"] >= 4 or i["sentiment"] == "негатив") / n, 3)
 
 
+def _attach_district_summaries(rows, posts_by_district):
+    """Дописывает row['summary'] — короткую ИИ-сводку «чем волновали жители» —
+    по уже классифицированным постам района (без нового вызова на каждый пост).
+    Без ключа или при ошибке молча оставляет summary='' — карта просто не
+    покажет блок сводки."""
+    import os as _os
+    api_key = (_os.getenv("LLM_API_KEY") or _os.getenv("DEEPSEEK_API_KEY")
+               or _os.getenv("GROQ_API_KEY") or _os.getenv("GROK_API_KEY") or "").strip()
+    summaries = {}
+    if api_key and posts_by_district:
+        try:
+            import grok_filter as gf
+            summaries = gf.summarize_districts(posts_by_district, api_key)
+        except Exception as e:
+            log.warning(f"Сводка по районам недоступна: {e}")
+    for row in rows:
+        row["summary"] = summaries.get(row["name"], "")
+
+
+def _pick_opinions(items, limit=2):
+    """До `limit` показательных постов района для карты-«облачков»: один самый
+    резонансный негативный + один самый резонансный позитивный (если есть оба),
+    чтобы бабблы честно отражали разброс мнений, а не только жалобы."""
+    if not items:
+        return []
+    pos = [p for p in items if p.get("sentiment") == "позитив"]
+    neg = [p for p in items if p.get("sentiment") == "негатив" or p.get("severity", 0) >= 4]
+    picks, seen = [], set()
+    for pool in (neg, pos):
+        if pool:
+            top = max(pool, key=engagement)
+            if top["id"] not in seen:
+                picks.append(top)
+                seen.add(top["id"])
+    if not picks:
+        picks.append(max(items, key=engagement))
+    return [sample(p) for p in picks[:limit]]
+
+
 def daily_spark(items, days_back=8, end=None):
     end = end or datetime.now(timezone.utc)
     b = [0] * days_back
@@ -576,15 +615,18 @@ def month_review(posts):
                            "eng": sum(engagement(x) for x in items),
                            "top_post": sample(top)})
 
-    districts, tagged = [], 0
+    districts, tagged, dist_items = [], 0, {}
     for name in CITY_DISTRICTS:
         items = [p for p in mp if (p.get("district") or "").strip() == name]
+        dist_items[name] = items
         tagged += len(items)
         top_cat = Counter(x["category"] for x in items).most_common(1)[0][0] if items else ""
         districts.append({"name": name, "count": len(items), "top_category": top_cat,
                           "neg": neg_share(items) if items else 0,
                           "posts": [sample(x) for x in
-                                    sorted(items, key=engagement, reverse=True)[:3]]})
+                                    sorted(items, key=engagement, reverse=True)[:3]],
+                          "opinions": _pick_opinions(items)})
+    _attach_district_summaries(districts, dist_items)
 
     return {
         "month": REVIEW_MONTH, "title": REVIEW_TITLE, "period": period,
@@ -768,23 +810,8 @@ def build(posts, all_feed, stats):
     districts = Counter(p["district"] for p in posts if p["district"] in CITY_DISTRICTS)
     dist_rows = [{"name": k, "count": v, "neg": neg_share([p for p in posts if p["district"] == k])}
                  for k, v in districts.most_common()]
-
-    # Короткая ИИ-сводка «чем в целом волновали жителей» по каждому району —
-    # из уже классифицированных категорий/тем, без нового вызова на каждый пост.
-    # Без ключа/при ошибке молча пропускаем — карта показывает счётчики и так.
-    import os as _os
-    _llm_key = (_os.getenv("LLM_API_KEY") or _os.getenv("DEEPSEEK_API_KEY")
-                or _os.getenv("GROQ_API_KEY") or _os.getenv("GROK_API_KEY") or "").strip()
-    dist_summaries = {}
-    if _llm_key and dist_rows:
-        try:
-            import grok_filter as gf
-            dist_posts = {row["name"]: [p for p in posts if p["district"] == row["name"]] for row in dist_rows}
-            dist_summaries = gf.summarize_districts(dist_posts, _llm_key)
-        except Exception as e:
-            log.warning(f"Сводка по районам недоступна: {e}")
-    for row in dist_rows:
-        row["summary"] = dist_summaries.get(row["name"], "")
+    _attach_district_summaries(
+        dist_rows, {row["name"]: [p for p in posts if p["district"] == row["name"]] for row in dist_rows})
 
     weeks = defaultdict(int)
     for p in posts:
