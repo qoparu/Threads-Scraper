@@ -1,0 +1,90 @@
+name: Daily citizen voice (comments) + redeploy
+
+on:
+  # Раз в день, отдельно от почасового скрапинга. citizen_voice.py заходит на
+  # страницы топ-постов и скроллит, чтобы подгрузить реплаи — это заметно более
+  # «ботовое» поведение для Threads, чем обычный сбор ленты, поэтому держим
+  # частоту низкой и не подключаем к hourly-scrape.yml.
+  schedule:
+    - cron: "0 2 * * *"  # 02:00 UTC = 07:00 Алматы
+  workflow_dispatch:
+    inputs:
+      top_n:
+        description: "Сколько топ-постов обработать"
+        type: number
+        default: 10
+
+permissions:
+  contents: read
+
+jobs:
+  citizen-voice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Тот же общий кэш, что и у почасового прогона (data/output/logs не в git) —
+      # берём свежий корпус, а свою запись потом видит и следующий почасовой прогон.
+      - name: Restore persistent state (corpus + AI caches)
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data
+            output
+            logs
+          key: jaspulse-state-${{ github.run_id }}
+          restore-keys: |
+            jaspulse-state-
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Chromium
+        run: playwright install --with-deps chromium
+
+      - name: Write secrets
+        run: |
+          cat > .env <<EOF
+          LOG_LEVEL=INFO
+          THREADS_COOKIE=${{ secrets.THREADS_COOKIE }}
+          VERCEL_TOKEN=${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID=${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID=${{ secrets.VERCEL_PROJECT_ID }}
+          LLM_API_KEY=${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL=${{ secrets.LLM_BASE_URL }}
+          LLM_MODEL=${{ secrets.LLM_MODEL }}
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          EOF
+
+      # Не роняем job, если Threads выдал login-challenge или реплаев мало —
+      # citizen_voice.py сам аккуратно останавливается и пишет что успел собрать.
+      - name: Collect replies + AI insights (light run)
+        continue-on-error: true
+        run: python citizen_voice.py ${{ github.event.inputs.top_n || 10 }}
+
+      - name: Rebuild + deploy dashboard
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: python merge_and_deploy.py
+
+      - name: Save persistent state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data
+            output
+            logs
+          key: jaspulse-state-${{ github.run_id }}

@@ -9,7 +9,7 @@ comment_insights.py — «Мнение жителей» из комментар�
 
 Запуск демо:  python comment_insights.py   (прогон на встроенном примере)
 """
-import os, re, json, sys, requests
+import re, json, sys, requests
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 from dotenv import load_dotenv
 load_dotenv()
@@ -58,7 +58,7 @@ SYSTEM = """Ты — аналитик обращений граждан для �
 Формулируй обезличенно и по делу. В notable_quotes — до 2, только вежливые/содержательные. Пиши по-русски."""
 
 def analyze(comments_kept, post_text=""):
-    api_key = (os.getenv("GROQ_API_KEY") or os.getenv("GROK_API_KEY", "local")).strip() or "local"
+    api_key = gf.API_KEY_ENV
     user_msg = ("Резонансный пост:\n" + (post_text or "—")[:500] +
                 "\n\nКомментарии жителей:\n" +
                 json.dumps([c["text"] for c in comments_kept], ensure_ascii=False, indent=1))
@@ -85,7 +85,7 @@ def synthesize_top_solutions(suggestions):
     suggestions = [s for s in suggestions if isinstance(s, str) and s.strip()]
     if not suggestions:
         return []
-    api_key = (os.getenv("GROQ_API_KEY") or os.getenv("GROK_API_KEY", "local")).strip() or "local"
+    api_key = gf.API_KEY_ENV
     body = {"model": gf.MODEL,
             "messages": [{"role": "system", "content": SYNTH_SYSTEM},
                          {"role": "user", "content": "Предложения жителей:\n" + json.dumps(suggestions, ensure_ascii=False)}],

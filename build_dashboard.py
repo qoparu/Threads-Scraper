@@ -309,9 +309,11 @@ def status_color(neg, trend):
 
 
 def sample(p):
+    # "owner" сознательно не отдаём на дашборд — публичный сайт не должен палить
+    # авторов постов поимённо, только сам текст обращения и ссылку на него.
     return {
         "id": p["id"],
-        "platform": p["platform"], "lang": p["lang"], "owner": p["owner_name"], "tier": p.get("tier", ""),
+        "platform": p["platform"], "lang": p["lang"], "tier": p.get("tier", ""),
         "text": p["text"], "summary": p.get("summary", ""), "theme": p.get("theme", ""),
         "category": p["category"], "severity": p["severity"], "sentiment": p["sentiment"],
         "ai_verified": bool(p.get("grok_done")),
