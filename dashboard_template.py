@@ -354,6 +354,11 @@ html[data-theme="dark"] .gsearch:focus{background:var(--surface)}
 .mr-pin{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-size:22px;background:var(--surface);border:2px solid var(--indigo);box-shadow:0 4px 14px rgba(79,70,229,.35);position:relative;cursor:pointer;transition:transform .15s;animation:mrdrop .55s cubic-bezier(.2,.9,.3,1.4)}
 .mr-pin:hover{transform:scale(1.14)}
 .mr-pin.ghost{border:2px dashed var(--dotbg);opacity:.6;box-shadow:none;font-size:17px}
+.op-bubble{width:28px;height:28px;border-radius:50% 50% 50% 4px;display:grid;place-items:center;font-size:13px;
+  background:var(--surface);cursor:pointer;transition:transform .15s;animation:mrdrop .5s cubic-bezier(.2,.9,.3,1.4)}
+.op-bubble:hover{transform:scale(1.18)}
+.op-bubble.pos{border:2px solid var(--green);box-shadow:0 3px 10px rgba(52,211,153,.4)}
+.op-bubble.neg{border:2px solid var(--rose);box-shadow:0 3px 10px rgba(251,113,133,.4)}
 .mr-cnt{position:absolute;top:-7px;right:-7px;min-width:20px;height:20px;border-radius:10px;background:linear-gradient(135deg,var(--indigo),var(--sky));color:#fff;font:800 11px/20px var(--disp);text-align:center;padding:0 5px;box-shadow:var(--sh)}
 @keyframes mrdrop{0%{transform:translateY(-16px) scale(.6);opacity:0}100%{transform:none;opacity:1}}
 .mr-pop{font-size:13px;max-width:250px;font-family:var(--sans)}
@@ -991,7 +996,7 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
   <div class="mr-grid">
    <div class="card">
     <h3>🗺️ Карта районов · что волновало жителей</h3>
-    <div class="tiny">нажмите на маркер или район — главная тема и самое резонансное обращение июня</div>
+    <div class="tiny">нажмите на район — ИИ-сводка по нему · нажмите на 💬 — конкретное мнение жителя (🟢 позитив / 🔴 негатив)</div>
     <div id="mrmap"></div>
     <div class="cf" style="margin:10px 0 0"><b>⚠</b>&nbsp;Район удалось определить у ${fmt(R.district_tagged)} из ${fmt(R.n)} обращений — маркер «❔» означает «недостаточно данных за месяц», а не отсутствие проблем в районе.</div>
    </div>
@@ -1012,17 +1017,27 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
   L.tileLayer(`https://{s}.basemaps.cartocdn.com/${_dark?'dark_all':'light_all'}/{z}/{x}/{y}{r}.png`,{attribution:'© OSM, © CARTO',maxZoom:18}).addTo(m);
   const dm={};R.districts.forEach(d=>dm[d.name]=d);
   const md=n=>{for(const k in dm){if(n&&n.indexOf(k)>=0)return dm[k];}return null;};
+  // бабблы мнений рисуем чуть вразброс вокруг центра района, чтобы не лепились друг на друга
+  const OFF=[[-.007,-.005],[.007,.005],[-.006,.007],[.006,-.007]];
   const layer=L.geoJSON(GEO,{style:f=>{const d=md(f.properties.nameRu),has=d&&d.count>0;
     return{color:_dark?'#3a4865':'#b9c4da',weight:1.2,dashArray:has?null:'4 4',
      fillColor:has?heatColor(Math.min(1,d.neg||0)):(_dark?'rgba(255,255,255,.05)':'#e8edf6'),fillOpacity:has?.5:.35};},
    onEachFeature:(f,l)=>{const d=md(f.properties.nameRu),has=d&&d.count>0;
-    const top=has?d.posts[0]:null;
     const pop=has?`<div class="mr-pop"><b>${esc(f.properties.nameRu)}</b><br>Главная тема: <b>${EMO[d.top_category]||'💬'} ${esc(d.top_category)}</b> · обращений: ${d.count}
-      ${top?`<div class="mr-popq">«${esc(top.text.slice(0,180))}${top.text.length>180?'…':''}»</div>${top.url?`<a href="${esc(top.url)}" target="_blank">${linkLabel(top)}</a>`:''}`:''}</div>`
+      ${d.summary?`<div class="mr-popq">🤖 ${esc(d.summary)}</div>`:''}</div>`
      :`<div class="mr-pop"><b>${esc(f.properties.nameRu)}</b><br><span style="color:var(--ink3)">Недостаточно данных за месяц: ни в одном обращении район не был определён.</span></div>`;
     l.bindPopup(pop);
+    const center=l.getBounds().getCenter();
     const icon=L.divIcon({className:'',html:`<div class="mr-pin${has?'':' ghost'}">${has?(EMO[d.top_category]||'💬'):'❔'}${has?`<span class="mr-cnt">${d.count}</span>`:''}</div>`,iconSize:[46,46],iconAnchor:[23,23]});
-    L.marker(l.getBounds().getCenter(),{icon}).addTo(m).bindPopup(pop);
+    L.marker(center,{icon}).addTo(m).bindPopup(pop);
+    (d.opinions||[]).forEach((op,i)=>{
+      const off=OFF[i%OFF.length],pos=[center.lat+off[0],center.lng+off[1]],positive=op.sentiment==='позитив';
+      const opIcon=L.divIcon({className:'',html:`<div class="op-bubble ${positive?'pos':'neg'}">💬</div>`,iconSize:[28,28],iconAnchor:[14,28]});
+      const opPop=`<div class="mr-pop"><span class="pill ${positive?'ok':'neg'}">${positive?'🟢 позитив':'🔴 негатив'}</span>
+        <div class="mr-popq">«${esc(op.text.slice(0,200))}${op.text.length>200?'…':''}»</div>
+        ${op.url?`<a href="${esc(op.url)}" target="_blank">${linkLabel(op)}</a>`:''}</div>`;
+      L.marker(pos,{icon:opIcon}).addTo(m).bindPopup(opPop);
+    });
     l.on('mouseover',()=>l.setStyle({weight:2.6,color:'#4f46e5'}));l.on('mouseout',()=>layer.resetStyle(l));}}).addTo(m);
   const fit=()=>{try{m.invalidateSize();m.fitBounds(layer.getBounds(),{padding:[10,10]});}catch(e){}};
   fit();
