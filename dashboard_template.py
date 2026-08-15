@@ -529,7 +529,7 @@ function sec(n,title,hint,page,tint,emoji){const s=$('section');s.id='s'+n;if(ti
 // раскрываемый блок текста — ПОЛНЫЙ текст в DOM, сворачивание только визуально
 function ptext(t,expanded){const id='p'+Math.random().toString(36).slice(2,8);
  return `<div class="ptext${expanded?'':' clamp'}" id="${id}">${esc(t)}</div><button class="morebtn" onclick="(function(b){const e=document.getElementById('${id}');e.classList.toggle('clamp');b.textContent=e.classList.contains('clamp')?'Развернуть ▾':'Свернуть ▴';})(this)">${expanded?'Свернуть ▴':'Развернуть ▾'}</button>`;}
-function mefmt(p){return [p.platform,p.lang,p.tier,p.owner?('@'+p.owner):'',fmtDate(p.created_at)].filter(Boolean).join(' · ');}
+function mefmt(p){return [p.platform,p.lang,p.tier,'гражданин',fmtDate(p.created_at)].filter(Boolean).join(' · ');}
 function postCard(p,extra){const neg=p.severity>=4||p.sentiment==='негатив';
  return `<div class="card"><div class="accentbar" style="background:${neg?'var(--rose)':'var(--indigo)'}"></div>
   ${catBadge(p.category)}
@@ -1158,7 +1158,7 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
  let sk='severity',sd=-1,allExpanded=false;
  function draw(){const q=b.querySelector('#q').value.toLowerCase().trim(),c=fcat.value,dd=fdist.value,pl=b.querySelector('#fplat').value,sv=+b.querySelector('#fsev').value;
    let rows=posts.filter(p=>{if(c&&p.category!==c)return false;if(dd&&p.district!==dd)return false;if(pl&&p.platform!==pl)return false;if(sv&&p.severity<sv)return false;
-     if(q&&!(p.text+' '+p.category+' '+p.owner).toLowerCase().includes(q))return false;return true;});
+     if(q&&!(p.text+' '+p.category).toLowerCase().includes(q))return false;return true;});
    rows.sort((a,bb)=>{let va=sk==='eng'?a.eng:a[sk],vb=sk==='eng'?bb.eng:bb[sk];if(typeof va==='string')return sd*(va||'').localeCompare(vb||'','ru');return sd*((va||0)-(vb||0));});
    b.querySelector('#cnt').textContent=fmt(rows.length)+' обращений';
    b.querySelector('#tbl tbody').innerHTML=rows.slice(0,400).map(p=>`<tr>
