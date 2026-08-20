@@ -837,11 +837,13 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
  wireSliders(b);
 })();
 
-/* 18. ПРОПАВШИЕ ЛЮДИ */
-(function(){const mposts=D.missing_persons||[];if(!mposts.length)return;
+/* 18. ПРОПАВШИЕ ЛЮДИ — раздел всегда на месте, даже без текущих обращений */
+(function(){const mposts=D.missing_persons||[];
  const b=sec(18,'Пропавшие — нужна помощь','автособранные обращения о поиске людей · поделитесь, если можете','overview','rose','🔍');
- b.innerHTML=`<div class="cf"><b>⚠</b>&nbsp;Ниже — посты о поиске пропавших людей, собранные автоматически. Если можете — поделитесь.</div>
-   <div class="grid g2" style="margin-top:12px">${mposts.map(missingPersonCard).join('')}</div>`;
+ b.innerHTML=mposts.length?
+  `<div class="cf"><b>⚠</b>&nbsp;Ниже — посты о поиске пропавших людей, собранные автоматически. Если можете — поделитесь.</div>
+   <div class="grid g2" style="margin-top:12px">${mposts.map(missingPersonCard).join('')}</div>`
+  :`<div class="tiny" style="opacity:.6;padding:10px 0">Сейчас подтверждённых обращений о поиске людей нет — раздел появится сам, как только такой пост найдётся.</div>`;
 })();
 
 /* 19. МНЕНИЯ ЖИТЕЛЕЙ (отдельная вкладка): топ-решения + разбор по постам */
