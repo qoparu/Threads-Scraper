@@ -303,7 +303,12 @@ def deploy_vercel() -> bool:
             log.info(f"Vercel deploy OK: {url}")
             return True
         else:
-            log.error(f"Vercel deploy failed:\n{result.stderr[:500]}")
+            # У Vercel CLI сама ошибка часто уходит в stdout, а не в stderr —
+            # раньше логировали только куцый stderr[:500] и реальную причину
+            # никогда не было видно (только шум от npm-варнингов/баннера CLI).
+            log.error(f"Vercel deploy failed (exit {result.returncode}):")
+            log.error(f"stdout:\n{result.stdout[-2000:]}")
+            log.error(f"stderr:\n{result.stderr[-2000:]}")
             return False
     except subprocess.TimeoutExpired:
         log.error("Vercel deploy timed out (120s)")
@@ -332,9 +337,10 @@ def main():
     merged       = merge(meta_posts, threads_posts)
 
     if not build_dashboard(merged):
-        return
+        sys.exit(1)
 
-    deploy_vercel()
+    if not deploy_vercel():
+        sys.exit(1)  # иначе GH Actions отчитывается "success" при молча упавшем деплое
 
     log.info("Done.")
 
