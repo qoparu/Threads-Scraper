@@ -345,6 +345,10 @@ html[data-theme="dark"] .gsearch:focus{background:var(--surface)}
 .ov-index b{font-family:var(--disp);font-size:16px;color:var(--rose)}
 @media(max-width:760px){.sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);transition:.25s;box-shadow:var(--sh2)}.sidebar.open{transform:none}.sb-toggle{display:grid;place-items:center}.content{padding:56px 14px 40px}.topbar .gsearch{display:none}}
 /* ===== Обзор месяца: игровая карта районов + ИИ-сводка ===== */
+.mr-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.mr-tab{font-size:12.5px;font-weight:600;border-radius:10px;border:1px solid var(--line);background:var(--soft);color:var(--ink2);padding:7px 14px;cursor:pointer}
+.mr-tab:hover{border-color:var(--indigo);color:var(--indigo)}
+.mr-tab.act{background:var(--indigo);border-color:var(--indigo);color:#fff}
 .mr-hud{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 .mr-chip{display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:7px 12px;box-shadow:var(--sh);font-size:11.5px;color:var(--ink2)}
 .mr-chip .ic{font-size:15px}.mr-chip b{font-family:var(--disp);font-size:15px;color:var(--ink)}
@@ -519,7 +523,7 @@ const reacEng=r=>r?(r.angry+r.sad+r.love+r.care+r.haha+r.wow):0;
 const linkLabel=p=>p.platform==='Threads'?'открыть в Threads ↗':p.platform==='Facebook'?'открыть пост ↗':'смотреть в Meta ↗';
 const D=DATA,M=D.meta,app=document.getElementById('app');const SECTIONS=[];
 const PAGE_DEFS=[['overview','Обзор'],['analytics','Аналитика'],['map','Карта'],['actions','Задачи и ответы'],['posts','Обращения'],['voice','Мнения жителей'],['methodology','Методология']];
-if(DATA.month_review)PAGE_DEFS.splice(1,0,['month','Итоги · '+DATA.month_review.title]);
+if(DATA.month_reviews&&DATA.month_reviews.length)PAGE_DEFS.splice(1,0,['month','Итоги по месяцам']);
 const PAGES={};
 PAGE_DEFS.forEach(([id,label])=>{const el=$('div','page');el.id='page-'+id;el.dataset.page=id;app.appendChild(el);PAGES[id]={el,label,sections:[]};});
 function sec(n,title,hint,page,tint,emoji){const s=$('section');s.id='s'+n;if(tint)s.classList.add('tint-'+tint);if(emoji)s.setAttribute('data-emoji',emoji);const h=$('div','sec-h');
@@ -971,81 +975,93 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
   try{map.fitBounds(layer.getBounds(),{padding:[12,12]});}catch(e){}},80);
 })();
 
-/* 20. ИЮНЬ: ОБЗОР МЕСЯЦА — игровая карта районов + ИИ-сводка */
-(function(){const R=D.month_review;if(!R)return;
- const b=sec(20,R.title+': обзор месяца',`исторический срез · ${esc(R.period)} · ${fmt(R.n)} из ${fmt(R.archive_total)} собранных прошли AI-проверку`,'month','indigo','🗓️');
+/* 20. ИТОГИ ПО МЕСЯЦАМ — вкладки по месяцам, в каждой игровая карта районов + ИИ-сводка */
+(function(){const MR=D.month_reviews||[];if(!MR.length)return;
+ const b=sec(20,'Итоги по месяцам','исторический срез по месяцам · переключайтесь вкладками ниже','month','indigo','🗓️');
  const EMO={'Дороги и транспорт':'🚗','ЖКХ и инфраструктура':'🔧','Вода и канализация':'🚱','Электроснабжение':'⚡','Экология и воздух':'🌫️','Благоустройство и мусор':'🗑️','Строительство и застройка':'🏗️','Безопасность и правопорядок':'🚨','Здравоохранение':'🏥','Образование':'🎓','Госуслуги и бюрократия':'📄','Цены и социальные вопросы':'💸','Прочее':'💬'};
- const topCat=R.categories[0];
- const chips=[
-  ['📥','Собрано всего',fmt(R.archive_total)],
-  ['✅','AI-проверено',fmt(R.n)],
-  ['📢','Суммарный охват',fmt(R.reach)],
-  ['😠','Негативных',Math.round(R.neg*100)+'%'],
-  ['🔥','Острых (4–5)',fmt(R.acute)],
-  topCat?[EMO[topCat.category]||'💬','Тема месяца',esc(topCat.category)]:null
- ].filter(Boolean).map(c=>`<div class="mr-chip"><span class="ic">${c[0]}</span><span>${c[1]}<br><b>${c[2]}</b></span></div>`).join('');
- const mx=Math.max(...R.categories.map(c=>c.count),1);
- const quests=R.categories.filter(c=>c.category!=='Прочее').slice(0,6).map((c,i)=>`<div class="card quest">
-   <div class="q-rank">#${i+1}</div>
-   <div class="q-ic">${EMO[c.category]||'💬'}</div>
-   <h3>${esc(c.category)}</h3>
-   <div class="tiny">${fmt(c.count)} обращений · ${pct(c.share)} AI-выборки · охват ${fmt(c.eng)}</div>
-   <div class="bar7 ${c.neg>=.5?'neg':''}"><i style="width:${Math.max(6,Math.round(c.count/mx*100))}%"></i></div>
-   ${c.top_post?`<div class="quote ${c.neg>=.5?'neg':''}" style="margin:8px 0 0">${ptext(c.top_post.text)}</div>
-   <div style="margin-top:8px"><span class="pill ind">охват ${fmt(c.top_post.eng)}</span>${c.top_post.url?`<a class="pill" href="${esc(c.top_post.url)}" target="_blank">${linkLabel(c.top_post)}</a>`:''}</div>`:''}
-  </div>`).join('');
- b.innerHTML=`<div class="mr-hud">${chips}</div>
-  <div class="mr-grid">
-   <div class="card">
-    <h3>🗺️ Карта районов · что волновало жителей</h3>
-    <div class="tiny">нажмите на район — ИИ-сводка по нему · нажмите на 💬 — конкретное мнение жителя (🟢 позитив / 🔴 негатив)</div>
-    <div id="mrmap"></div>
-    <div class="cf" style="margin:10px 0 0"><b>⚠</b>&nbsp;Район удалось определить у ${fmt(R.district_tagged)} из ${fmt(R.n)} обращений — маркер «❔» означает «недостаточно данных за месяц», а не отсутствие проблем в районе.</div>
+ let active=MR.length-1;   // по умолчанию — самый свежий месяц
+ let curMap=null;
+ const tabsHTML=()=>`<div class="mr-tabs">${MR.map((r,i)=>
+   `<button type="button" class="mr-tab${i===active?' act':''}" data-i="${i}">${esc(r.title)}${r.in_progress?' <span class="tiny">· идёт</span>':''}</button>`).join('')}</div>`;
+
+ function render(){
+  const R=MR[active];
+  const topCat=R.categories[0];
+  const chips=[
+   ['📥','Собрано всего',fmt(R.archive_total)],
+   ['✅','AI-проверено',fmt(R.n)],
+   ['📢','Суммарный охват',fmt(R.reach)],
+   ['😠','Негативных',Math.round(R.neg*100)+'%'],
+   ['🔥','Острых (4–5)',fmt(R.acute)],
+   topCat?[EMO[topCat.category]||'💬','Тема месяца',esc(topCat.category)]:null
+  ].filter(Boolean).map(c=>`<div class="mr-chip"><span class="ic">${c[0]}</span><span>${c[1]}<br><b>${c[2]}</b></span></div>`).join('');
+  const mx=Math.max(...R.categories.map(c=>c.count),1);
+  const quests=R.categories.filter(c=>c.category!=='Прочее').slice(0,6).map((c,i)=>`<div class="card quest">
+    <div class="q-rank">#${i+1}</div>
+    <div class="q-ic">${EMO[c.category]||'💬'}</div>
+    <h3>${esc(c.category)}</h3>
+    <div class="tiny">${fmt(c.count)} обращений · ${pct(c.share)} AI-выборки · охват ${fmt(c.eng)}</div>
+    <div class="bar7 ${c.neg>=.5?'neg':''}"><i style="width:${Math.max(6,Math.round(c.count/mx*100))}%"></i></div>
+    ${c.top_post?`<div class="quote ${c.neg>=.5?'neg':''}" style="margin:8px 0 0">${ptext(c.top_post.text)}</div>
+    <div style="margin-top:8px"><span class="pill ind">охват ${fmt(c.top_post.eng)}</span>${c.top_post.url?`<a class="pill" href="${esc(c.top_post.url)}" target="_blank">${linkLabel(c.top_post)}</a>`:''}</div>`:''}
+   </div>`).join('');
+  b.innerHTML=tabsHTML()+`<div class="mr-hud">${chips}</div>
+   <div class="mr-grid">
+    <div class="card">
+     <h3>🗺️ Карта районов · что волновало жителей</h3>
+     <div class="tiny">нажмите на район — ИИ-сводка по нему · нажмите на 💬 — конкретное мнение жителя (🟢 позитив / 🔴 негатив)</div>
+     <div id="mrmap"></div>
+     <div class="cf" style="margin:10px 0 0"><b>⚠</b>&nbsp;Район удалось определить у ${fmt(R.district_tagged)} из ${fmt(R.n)} обращений — маркер «❔» означает «недостаточно данных за месяц», а не отсутствие проблем в районе.</div>
+    </div>
+    <div class="card ai-sum">
+     <div class="ai-head"><span class="ai-badge">🤖 ИИ-сводка</span><b style="font-family:var(--disp)">${esc(R.title)}</b></div>
+     ${R.ai_summary.map(p=>`<p>${esc(p)}</p>`).join('')}
+     <div class="tiny" style="margin-top:4px">Сводка сформирована ИИ по ${fmt(R.n)} AI-проверенным обращениям за ${esc(R.period)} · проверьте факты перед использованием</div>
+    </div>
    </div>
-   <div class="card ai-sum">
-    <div class="ai-head"><span class="ai-badge">🤖 ИИ-сводка</span><b style="font-family:var(--disp)">${esc(R.title)}</b></div>
-    ${R.ai_summary.map(p=>`<p>${esc(p)}</p>`).join('')}
-    <div class="tiny" style="margin-top:4px">Сводка сформирована ИИ по ${fmt(R.n)} AI-проверенным обращениям за ${esc(R.period)} · проверьте факты перед использованием</div>
-   </div>
-  </div>
-  <div class="card" style="margin-top:16px"><h3>🏆 Топ-темы месяца</h3>
-   <div class="tiny" style="margin-bottom:10px">по AI-проверенной выборке (${fmt(R.n)} из ${fmt(R.archive_total)} собранных) · в каждой — самый резонансный пост</div>
-   <div class="grid g3">${quests}</div></div>`;
- setTimeout(()=>{try{
-  if(!GEO)return;
-  const _dark=document.documentElement.dataset.theme==='dark';
-  const m=L.map('mrmap',{scrollWheelZoom:false}).setView([43.245,76.92],10);
-  (window._maps=window._maps||[]).push(m);
-  L.tileLayer(`https://{s}.basemaps.cartocdn.com/${_dark?'dark_all':'light_all'}/{z}/{x}/{y}{r}.png`,{attribution:'© OSM, © CARTO',maxZoom:18}).addTo(m);
-  const dm={};R.districts.forEach(d=>dm[d.name]=d);
-  const md=n=>{for(const k in dm){if(n&&n.indexOf(k)>=0)return dm[k];}return null;};
-  // бабблы мнений рисуем чуть вразброс вокруг центра района, чтобы не лепились друг на друга
-  const OFF=[[-.007,-.005],[.007,.005],[-.006,.007],[.006,-.007]];
-  const layer=L.geoJSON(GEO,{style:f=>{const d=md(f.properties.nameRu),has=d&&d.count>0;
-    return{color:_dark?'#3a4865':'#b9c4da',weight:1.2,dashArray:has?null:'4 4',
-     fillColor:has?heatColor(Math.min(1,d.neg||0)):(_dark?'rgba(255,255,255,.05)':'#e8edf6'),fillOpacity:has?.5:.35};},
-   onEachFeature:(f,l)=>{const d=md(f.properties.nameRu),has=d&&d.count>0;
-    const pop=has?`<div class="mr-pop"><b>${esc(f.properties.nameRu)}</b><br>Главная тема: <b>${EMO[d.top_category]||'💬'} ${esc(d.top_category)}</b> · обращений: ${d.count}
-      ${d.summary?`<div class="mr-popq">🤖 ${esc(d.summary)}</div>`:''}</div>`
-     :`<div class="mr-pop"><b>${esc(f.properties.nameRu)}</b><br><span style="color:var(--ink3)">Недостаточно данных за месяц: ни в одном обращении район не был определён.</span></div>`;
-    l.bindPopup(pop);
-    const center=l.getBounds().getCenter();
-    const icon=L.divIcon({className:'',html:`<div class="mr-pin${has?'':' ghost'}">${has?(EMO[d.top_category]||'💬'):'❔'}${has?`<span class="mr-cnt">${d.count}</span>`:''}</div>`,iconSize:[46,46],iconAnchor:[23,23]});
-    L.marker(center,{icon}).addTo(m).bindPopup(pop);
-    (d.opinions||[]).forEach((op,i)=>{
-      const off=OFF[i%OFF.length],pos=[center.lat+off[0],center.lng+off[1]],positive=op.sentiment==='позитив';
-      const opIcon=L.divIcon({className:'',html:`<div class="op-bubble ${positive?'pos':'neg'}">💬</div>`,iconSize:[28,28],iconAnchor:[14,28]});
-      const opPop=`<div class="mr-pop"><span class="pill ${positive?'ok':'neg'}">${positive?'🟢 позитив':'🔴 негатив'}</span>
-        <div class="mr-popq">«${esc(op.text.slice(0,200))}${op.text.length>200?'…':''}»</div>
-        ${op.url?`<a href="${esc(op.url)}" target="_blank">${linkLabel(op)}</a>`:''}</div>`;
-      L.marker(pos,{icon:opIcon}).addTo(m).bindPopup(opPop);
-    });
-    l.on('mouseover',()=>l.setStyle({weight:2.6,color:'#4f46e5'}));l.on('mouseout',()=>layer.resetStyle(l));}}).addTo(m);
-  const fit=()=>{try{m.invalidateSize();m.fitBounds(layer.getBounds(),{padding:[10,10]});}catch(e){}};
-  fit();
-  // карта создаётся в скрытой вкладке (контейнер нулевого размера) — переподгоняем при первом показе
-  new IntersectionObserver((es,o)=>{es.forEach(e=>{if(e.isIntersecting){setTimeout(fit,90);o.disconnect();}});}).observe(document.getElementById('mrmap'));
- }catch(e){}},120);
+   <div class="card" style="margin-top:16px"><h3>🏆 Топ-темы месяца</h3>
+    <div class="tiny" style="margin-bottom:10px">по AI-проверенной выборке (${fmt(R.n)} из ${fmt(R.archive_total)} собранных) · в каждой — самый резонансный пост</div>
+    <div class="grid g3">${quests}</div></div>`;
+  b.querySelectorAll('.mr-tab').forEach(t=>t.onclick=()=>{const i=+t.dataset.i;if(i===active)return;active=i;render();});
+  setTimeout(()=>{try{
+   if(!GEO)return;
+   if(curMap){try{curMap.remove();}catch(e){}
+     window._maps=(window._maps||[]).filter(mm=>mm!==curMap);curMap=null;}
+   const _dark=document.documentElement.dataset.theme==='dark';
+   const m=L.map('mrmap',{scrollWheelZoom:false}).setView([43.245,76.92],10);
+   curMap=m;(window._maps=window._maps||[]).push(m);
+   L.tileLayer(`https://{s}.basemaps.cartocdn.com/${_dark?'dark_all':'light_all'}/{z}/{x}/{y}{r}.png`,{attribution:'© OSM, © CARTO',maxZoom:18}).addTo(m);
+   const dm={};R.districts.forEach(d=>dm[d.name]=d);
+   const md=n=>{for(const k in dm){if(n&&n.indexOf(k)>=0)return dm[k];}return null;};
+   // бабблы мнений рисуем чуть вразброс вокруг центра района, чтобы не лепились друг на друга
+   const OFF=[[-.007,-.005],[.007,.005],[-.006,.007],[.006,-.007]];
+   const layer=L.geoJSON(GEO,{style:f=>{const d=md(f.properties.nameRu),has=d&&d.count>0;
+     return{color:_dark?'#3a4865':'#b9c4da',weight:1.2,dashArray:has?null:'4 4',
+      fillColor:has?heatColor(Math.min(1,d.neg||0)):(_dark?'rgba(255,255,255,.05)':'#e8edf6'),fillOpacity:has?.5:.35};},
+    onEachFeature:(f,l)=>{const d=md(f.properties.nameRu),has=d&&d.count>0;
+     const pop=has?`<div class="mr-pop"><b>${esc(f.properties.nameRu)}</b><br>Главная тема: <b>${EMO[d.top_category]||'💬'} ${esc(d.top_category)}</b> · обращений: ${d.count}
+       ${d.summary?`<div class="mr-popq">🤖 ${esc(d.summary)}</div>`:''}</div>`
+      :`<div class="mr-pop"><b>${esc(f.properties.nameRu)}</b><br><span style="color:var(--ink3)">Недостаточно данных за месяц: ни в одном обращении район не был определён.</span></div>`;
+     l.bindPopup(pop);
+     const center=l.getBounds().getCenter();
+     const icon=L.divIcon({className:'',html:`<div class="mr-pin${has?'':' ghost'}">${has?(EMO[d.top_category]||'💬'):'❔'}${has?`<span class="mr-cnt">${d.count}</span>`:''}</div>`,iconSize:[46,46],iconAnchor:[23,23]});
+     L.marker(center,{icon}).addTo(m).bindPopup(pop);
+     (d.opinions||[]).forEach((op,i)=>{
+       const off=OFF[i%OFF.length],pos=[center.lat+off[0],center.lng+off[1]],positive=op.sentiment==='позитив';
+       const opIcon=L.divIcon({className:'',html:`<div class="op-bubble ${positive?'pos':'neg'}">💬</div>`,iconSize:[28,28],iconAnchor:[14,28]});
+       const opPop=`<div class="mr-pop"><span class="pill ${positive?'ok':'neg'}">${positive?'🟢 позитив':'🔴 негатив'}</span>
+         <div class="mr-popq">«${esc(op.text.slice(0,200))}${op.text.length>200?'…':''}»</div>
+         ${op.url?`<a href="${esc(op.url)}" target="_blank">${linkLabel(op)}</a>`:''}</div>`;
+       L.marker(pos,{icon:opIcon}).addTo(m).bindPopup(opPop);
+     });
+     l.on('mouseover',()=>l.setStyle({weight:2.6,color:'#4f46e5'}));l.on('mouseout',()=>layer.resetStyle(l));}}).addTo(m);
+   const fit=()=>{try{m.invalidateSize();m.fitBounds(layer.getBounds(),{padding:[10,10]});}catch(e){}};
+   fit();
+   // карта создаётся в скрытой вкладке (контейнер нулевого размера) — переподгоняем при первом показе
+   new IntersectionObserver((es,o)=>{es.forEach(e=>{if(e.isIntersecting){setTimeout(fit,90);o.disconnect();}});}).observe(document.getElementById('mrmap'));
+  }catch(e){}},120);
+ }
+ render();
 })();
 
 /* 10. ИНДЕКС НАПРЯЖЁННОСТИ + ТОНАЛЬНОСТЬ */
