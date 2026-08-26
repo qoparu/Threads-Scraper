@@ -388,6 +388,58 @@ def summarize_districts(dist_posts: Dict[str, List[dict]], api_key: str, retries
     return {}
 
 
+def summarize_month(title: str, archive_total: int, n: int, neg_ratio: float, acute: int,
+                     categories: List[dict], district_tagged: int, api_key: str,
+                     retries: int = 2) -> List[str]:
+    """ИИ-сводка месяца для вкладки «Итоги по месяцам» — 3-5 коротких абзацев по
+    уже агрегированным категориям (без вызова на каждый пост), строго по переданным
+    фактам, без вымышленных деталей. Возвращает [] при недоступности ИИ/ошибке —
+    вызывающий код сам решает, каким фолбэком это заменить."""
+    if not categories:
+        return []
+    cat_payload = [
+        {
+            "category": c["category"], "count": c["count"], "share": c["share"], "neg": c["neg"],
+            "top_post_excerpt": (c.get("top_post") or {}).get("text", "")[:220],
+        }
+        for c in categories[:8]
+    ]
+    user_msg = (
+        f"Месяц: {title}. Собрано упоминаний Алматы: {archive_total}, прошли AI-проверку: {n}. "
+        f"Доля негативных: {round(neg_ratio * 100)}%. Обращений повышенной остроты (4-5): {acute}. "
+        f"Район определён у {district_tagged} из {n} обращений.\n\n"
+        "Категории (отсортированы по объёму), у каждой — доля негатива и отрывок самого "
+        "резонансного поста:\n" + json.dumps(cat_payload, ensure_ascii=False) + "\n\n"
+        "Напиши 3-5 коротких абзацев (как для аналитика акимата): 1) объём/доля AI-проверки и "
+        "общий негативный фон; 2) главные темы месяца с конкретикой ИЗ переданных отрывков "
+        "постов (не выдумывай факты, которых там нет); 3) второй план тем; 4) позитивная повестка, "
+        "если она заметна в данных; 5) короткая оговорка про покрытие карты по районам "
+        f"({district_tagged} из {n}). Верни JSON {{\"paragraphs\":[\"...\", \"...\"]}}. По-русски, "
+        "нейтрально, без оценочных суждений, только факты из данных."
+    )
+    body = {
+        "model": MODEL,
+        "messages": [{"role": "user", "content": user_msg}],
+        "temperature": 0.2,
+        "response_format": {"type": "json_object"},
+    }
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    for attempt in range(1, retries + 1):
+        try:
+            r = requests.post(API_URL, headers=headers, json=body, timeout=90)
+            r.raise_for_status()
+            content = r.json()["choices"][0]["message"]["content"]
+            parsed = _extract_json(content)
+            if isinstance(parsed, dict) and isinstance(parsed.get("paragraphs"), list):
+                paras = [p.strip() for p in parsed["paragraphs"] if isinstance(p, str) and p.strip()]
+                if paras:
+                    return paras
+        except Exception as e:
+            log.warning(f"Сводка месяца ({title}) не собралась (попытка {attempt}): {e}")
+            time.sleep(2 * attempt)
+    return []
+
+
 def classify_posts(posts: List[dict]) -> List[dict]:
     api_key = (API_KEY_ENV or "local").strip() or "local"
     if not _IS_LOCAL and api_key == "local":
