@@ -401,6 +401,7 @@ html[data-theme="dark"] .gsearch:focus{background:var(--surface)}
      <button class="btn" id="refreshBtn" style="white-space:nowrap">🔄 Обновить сейчас</button>
      <div class="clock" id="clock">—</div>
    </div>
+   <div id="staleBanner"></div>
    <section class="hero" id="s1"><div id="hero"></div></section>
    <div id="app"></div>
    <div class="foot" id="foot"></div>
@@ -700,6 +701,13 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
 
 /* HERO — командный центр (BioSync-стиль) + ЖИВЫЕ ЧАСЫ */
 (function(){
+ const staleDays=M.stale_days;
+ const staleEl=document.getElementById('staleBanner');
+ if(staleEl){
+   staleEl.innerHTML=(staleDays&&staleDays>=1)
+     ?`<div class="cf"><b>⚠</b>&nbsp;Новые посты не поступали ${staleDays} ${staleDays===1?'день':staleDays<5?'дня':'дней'} — последний зафиксированный пост: ${esc(M.last_post_at?new Date(M.last_post_at).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—')}. Ниже показаны последние актуальные данные, сбор временно приостановлен.</div>`
+     :'';
+ }
  const negPct=Math.max(0,100-(M.sent_index||0));
  const allp=D.all_posts||[];const acute=allp.filter(p=>(+p.severity||0)>=4).length;
  const acutePct=allp.length?Math.round(100*acute/allp.length):0;
@@ -715,6 +723,7 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
    </div>`).join('')||'<div class="tiny">нет данных</div>';
  const tl=D.timeline.map(t=>t.count);
  const dayHi=D.now24.n>D.now24.avg;
+ const isStale=(staleDays||0)>=1;
  const reachAvg=Math.round(M.reach/Math.max(D.timeline.length*7,1));
  const platChips=D.platforms.map(p=>`<span class="platchip">${platIcon(p.platform)}${esc(p.platform)} <b>${fmt(p.n)}</b></span>`).join('');
  const TAGS=['Сегодня · 24 ч','Эта неделя','Эта неделя'],NIC=['🛡','🚧','📣'];
@@ -730,7 +739,7 @@ function sparkSvg(vals,color){if(!vals||!vals.length)return '';const w=220,h=42,
     <div class="ov-head"><div><h2>${VIEW==='ump'?'Обзор · молодёжная политика':'Обзор города'}</h2><div class="tiny">${VIEW==='ump'?'Молодёжь, вузы и общежития Алматы':'Социальный слух Алматы'} · ${esc(M.period)}</div></div>
       <div class="plats" style="margin-left:auto">${platChips}</div></div>
     <div class="bk">
-      <div class="bcard"><div class="bh"><span class="bl">Обращений за сутки</span><span class="stag"><i style="background:${dayHi?'var(--amber)':'var(--green)'}"></i>${dayHi?'выше':'норма'}</span></div>
+      <div class="bcard"><div class="bh"><span class="bl">Обращений за сутки</span><span class="stag"><i style="background:${isStale?'var(--rose)':dayHi?'var(--amber)':'var(--green)'}"></i>${isStale?'нет новых данных':dayHi?'выше':'норма'}</span></div>
         <div class="bv">${fmt(D.now24.n)}</div>${sparkSvg(tl,'#22c55e')}</div>
       <div class="bcard"><div class="bh"><span class="bl">Доля негатива</span><span class="stag"><i style="background:var(--rose)"></i>${negPct>=50?'высокая':'умеренная'}</span></div>
         <div class="bv">${negPct}%</div>
@@ -1295,3 +1304,135 @@ setTimeout(()=>{try{sessionStorage.setItem('scrollY',String(window.scrollY||wind
 </script>
 </body>
 </html>"""
+
+# ── «Благополучие подростков» — отдельная скрытая страница за паролем ──────────
+# Не связана с HTML_TEMPLATE и не встроена в общий переключатель видов (viewtog):
+# доступна только по прямой ссылке. Пароль проверяется на клиенте по SHA-256
+# хэшу (само значение пароля в код не зашито) — это барьер от случайного
+# обнаружения при просмотре сайта, а НЕ настоящая защита: данные лежат
+# на статическом хостинге отдельным JSON-файлом и доступны напрямую по URL
+# тому, кто его узнает или угадает.
+TEEN_DATA_FILENAME = "tw-data-257.json"
+TEEN_PAGE_FILENAME = "teen-wellbeing-257.html"
+TEEN_PASS_HASH = "9e7a612b7e5760b93acb5436382ad87638d345ceaea99ea0c43197269f739bef"
+
+TEEN_WELLBEING_TEMPLATE = """<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Благополучие подростков — служебный доступ</title>
+<style>
+:root{--bg:#f4f7fb;--surface:#fff;--ink:#1f2a44;--ink2:#5c6b86;--ink3:#95a2bb;
+--line:#e9edf6;--soft:#f1f4fa;--indigo:#6366f1;--rose:#fb7185;--amber:#f6b756;
+--sans:'Inter',system-ui,sans-serif;--sh:0 1px 2px rgba(20,30,60,.04),0 10px 30px rgba(20,30,60,.06);}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--sans);color:var(--ink);background:var(--bg);font-size:15px;line-height:1.5}
+.wrap{max-width:900px;margin:0 auto;padding:24px 16px 80px}
+.gate{max-width:380px;margin:14vh auto;background:var(--surface);border:1px solid var(--line);
+  border-radius:16px;padding:28px;box-shadow:var(--sh);text-align:center}
+.gate h1{font-size:17px;margin:0 0 6px}
+.gate p{color:var(--ink2);font-size:13px;margin:0 0 18px}
+.gate input{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:10px;
+  font-size:14px;font-family:var(--sans);margin-bottom:10px}
+.gate button{width:100%;padding:11px;border:0;border-radius:10px;background:var(--indigo);
+  color:#fff;font-weight:700;font-size:14px;cursor:pointer}
+.gate .err{color:var(--rose);font-size:12.5px;min-height:16px;margin-top:8px}
+.hidden{display:none !important}
+.warn{background:#fff7ed;border:1px solid #fde3b8;border-radius:12px;padding:14px 16px;
+  font-size:13px;color:#7a4b00;margin-bottom:18px}
+.crisis{background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:14px 16px;
+  font-size:13px;color:#7f1d1d;margin-bottom:22px}
+h1.title{font-size:22px;margin:0 0 4px}
+.sub{color:var(--ink2);font-size:13px;margin:0 0 24px}
+.sec{margin-bottom:32px}
+.sec h2{font-size:15px;margin:0 0 3px;display:flex;align-items:center;gap:8px}
+.sec .n{background:var(--soft);border-radius:8px;padding:2px 9px;font-size:12px;color:var(--indigo);font-weight:700}
+.sec .hint{color:var(--ink3);font-size:12px;margin:0 0 12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;
+  margin-bottom:10px;box-shadow:var(--sh)}
+.card .meta{display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--ink3);margin-bottom:6px}
+.badge{background:#fef2f2;color:#b91c1c;border-radius:7px;padding:2px 8px;font-weight:700;font-size:10.5px}
+.card .txt{font-size:13.5px;white-space:pre-wrap}
+.card a{color:var(--indigo);font-size:12px;text-decoration:none;display:inline-block;margin-top:8px}
+.empty{color:var(--ink3);font-size:13px;font-style:italic}
+</style>
+</head>
+<body>
+<div id="gate" class="gate">
+  <h1>🔒 Служебный доступ</h1>
+  <p>Чувствительные данные. Только для сотрудников акимата.</p>
+  <input type="password" id="pw" placeholder="Пароль доступа" autocomplete="off">
+  <button id="pwbtn">Войти</button>
+  <div class="err" id="pwerr"></div>
+</div>
+<div id="content" class="wrap hidden">
+  <h1 class="title">Благополучие подростков</h1>
+  <p class="sub">Тестовая вкладка · автосбор по ключевым словам, без ИИ-проверки</p>
+  <div class="warn">⚠ Все карточки ниже — сырые совпадения по ключевым словам, включая ложные срабатывания
+    (упоминания в новостях, старые истории и т.п.). Перед любым действием — ручная проверка.</div>
+  <div class="crisis">🆘 Единый детский телефон доверия: <b>111</b> (бесплатно, круглосуточно) —
+    проверьте актуальность номера перед использованием в работе.</div>
+  <div class="sec" id="sec-suicide">
+    <h2>🕯 Суицид / самоповреждение <span class="n" id="n-suicide">0</span></h2>
+    <p class="hint">Не только про подростков — ключевые слова ловят упоминания в любом контексте.</p>
+    <div id="list-suicide"></div>
+  </div>
+  <div class="sec" id="sec-missing">
+    <h2>🔍 Пропажа детей и подростков <span class="n" id="n-missing">0</span></h2>
+    <p class="hint">Отдельно от общей вкладки «Пропавшие» — только детские/подростковые формулировки.</p>
+    <div id="list-missing"></div>
+  </div>
+  <div class="sec" id="sec-bullying">
+    <h2>🏫 Буллинг и насилие в школах <span class="n" id="n-bullying">0</span></h2>
+    <div id="list-bullying"></div>
+  </div>
+</div>
+<script>
+(function(){
+const HASH="__TEEN_PASS_HASH__", DATAFILE="__TEEN_DATA_FILENAME__";
+async function sha256(str){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+function fmtDate(iso){try{return new Date(iso).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch(e){return iso||'';}}
+function renderList(id, items){
+  const el=document.getElementById(id);
+  if(!items || !items.length){el.innerHTML='<div class="empty">Ничего не найдено за последние 45 дней.</div>';return;}
+  el.innerHTML=items.map(p=>`<div class="card">
+    <div class="meta"><span class="badge">требует проверки</span><span>${fmtDate(p.created_at)}</span>
+      ${p.district?`<span>· ${esc(p.district)}</span>`:''}<span>· охват ${p.eng||0}</span></div>
+    <div class="txt">${esc((p.text||'').slice(0,600))}${(p.text||'').length>600?'…':''}</div>
+    ${p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener">Открыть источник →</a>`:''}
+  </div>`).join('');
+}
+async function unlock(){
+  document.getElementById('gate').classList.add('hidden');
+  document.getElementById('content').classList.remove('hidden');
+  try{
+    const r=await fetch(DATAFILE,{cache:'no-store'});
+    const d=await r.json();
+    document.getElementById('n-suicide').textContent=(d.suicide||[]).length;
+    document.getElementById('n-missing').textContent=(d.missing_children||[]).length;
+    document.getElementById('n-bullying').textContent=(d.bullying||[]).length;
+    renderList('list-suicide', d.suicide);
+    renderList('list-missing', d.missing_children);
+    renderList('list-bullying', d.bullying);
+  }catch(e){
+    document.getElementById('content').innerHTML='<p>Не удалось загрузить данные.</p>';
+  }
+}
+async function tryPass(){
+  const val=document.getElementById('pw').value;
+  const h=await sha256(val);
+  if(h===HASH){try{sessionStorage.setItem('tw_ok','1');}catch(e){}unlock();}
+  else{document.getElementById('pwerr').textContent='Неверный пароль';}
+}
+document.getElementById('pwbtn').onclick=tryPass;
+document.getElementById('pw').addEventListener('keydown',e=>{if(e.key==='Enter')tryPass();});
+try{if(sessionStorage.getItem('tw_ok')==='1'){document.getElementById('gate').classList.add('hidden');document.getElementById('content').classList.remove('hidden');unlock();}}catch(e){}
+})();
+</script>
+</body>
+</html>""".replace("__TEEN_PASS_HASH__", TEEN_PASS_HASH).replace("__TEEN_DATA_FILENAME__", TEEN_DATA_FILENAME)

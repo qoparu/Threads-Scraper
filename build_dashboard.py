@@ -436,6 +436,69 @@ def is_missing_person_post(text):
     return bool(_MISSING_PERSON_RX.search(text))
 
 
+# ── «Благополучие подростков» — тестовая вкладка (скрытая, по прямой ссылке) ──
+# Отдельно от общего дашборда: суицид/самоповреждение раньше тонули в общей
+# категории «Безопасность и правопорядок» вместе с ДТП и кражами, пропажа детей —
+# в общей «Пропавшие» вместе со взрослыми. Детекция ТОЛЬКО по ключевым словам
+# (без AI-проверки) — точность ниже, каждая карточка помечена «требует проверки».
+
+_CHILD_WORD = (r"(?:ребён\w*|ребен\w*|мальчик\w*|девочк\w*|подросток\w*|подростк\w*|"
+               r"школьник\w*|школьниц\w*|несовершеннолет\w*|учени\w*|бала\w*)")
+
+_SUICIDE_RX = _refix.compile(
+    r"суицид\w*|самоубийств\w*|свёл\s+счёты|свел\s+счеты|свела\s+счёты|свела\s+счеты|"
+    r"покончил\w*\s+с\s+собой|наложил\w*\s+на\s+себя\s+руки|самоповрежд\w*|"
+    r"порезал\w*\s+вен\w*|прыгнул\w*\s+с\s+(?:крыш|балкон|окн|моста)|"
+    r"өзін-өзі\s+өлтір\w*|өз\s+өміріне\s+қол\s+жұмса\w*", _refix.I)
+
+_MISSING_CHILD_RX = _refix.compile(
+    rf"{_MISSING_ROOT}(?:\s+\S+){{0,4}}\s+{_CHILD_WORD}|{_CHILD_WORD}(?:\s+\S+){{0,4}}\s+{_MISSING_ROOT}",
+    _refix.I)
+
+_BULLYING_RX = _refix.compile(
+    r"буллинг|кибербуллинг|травл[яеию]|издева\w*|дедовщин|"
+    r"(?:насили|избил\w*|избиени\w*|нападени\w*|нападал\w*|угрожа\w*)\w*.{0,60}"
+    r"(?:школ\w*|мектеп|однокласс\w*|учител\w*|подросток\w*|ученик\w*)|"
+    r"(?:школ\w*|мектеп|однокласс\w*|ученик\w*|подросток\w*)\w*.{0,60}"
+    r"(?:насили|избил\w*|нападени\w*|нападал\w*|угрожа\w*)", _refix.I)
+
+TEEN_WELLBEING_MAX_AGE_DAYS = 45  # редкие сигналы — держим на виду дольше, чем «Пропавшие»
+
+
+def build_teen_wellbeing(all_feed, now):
+    """Три ленты по ключевым словам: суицид/самоповреждение, пропажа детей,
+    школьный буллинг/насилие. Только для служебного использования (скрытая
+    страница за паролем) — каждая карточка требует ручной проверки перед действием."""
+    fresh = [
+        p for p in all_feed
+        if (d := parse_dt(p.get("created_at", ""))) and 0 <= (now - d).days <= TEEN_WELLBEING_MAX_AGE_DAYS
+    ]
+
+    def _collect(rx, limit=30):
+        seen, out = set(), []
+        matched = [p for p in fresh if rx.search(p.get("text", ""))]
+        matched.sort(key=lambda p: parse_dt(p.get("created_at", "")) or now, reverse=True)
+        for p in matched:
+            key = " ".join((p.get("text", "")[:70]).lower().split())
+            if key in seen:
+                continue
+            seen.add(key)
+            s = sample(p)
+            s["needs_review"] = True
+            out.append(s)
+            if len(out) >= limit:
+                break
+        return out
+
+    return {
+        "generated_at": now.isoformat(),
+        "max_age_days": TEEN_WELLBEING_MAX_AGE_DAYS,
+        "suicide": _collect(_SUICIDE_RX),
+        "missing_children": _collect(_MISSING_CHILD_RX),
+        "bullying": _collect(_BULLYING_RX),
+    }
+
+
 # Сигналы позитива и упоминания работы города/акимата
 _POS_RX = _refix.compile(
     r"спасибо|благодар|рахмет|рақмет|молодц|красив|отличн|прекрасн|супер|"
@@ -774,6 +837,13 @@ def build(posts, all_feed, stats):
     # давности, подписанные как "сегодня".
     now = datetime.now(timezone.utc)
 
+    # Свежесть корпуса: когда реально пришёл последний пост (не когда дашборд
+    # пересобрался — пересборка идёт каждый час даже без новых данных, если
+    # сбор временно встал). Нужно, чтобы честно показать "данные устарели",
+    # а не молча выдавать "0 обращений за сутки" как будто в городе всё тихо.
+    last_post_dt = max(dts) if dts else None
+    stale_days = (now - last_post_dt).days if last_post_dt else None
+
     cats = defaultdict(list)
     for p in posts:
         cats[p["category"]].append(p)
@@ -1034,6 +1104,8 @@ def build(posts, all_feed, stats):
         "meta": {
             "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
             "updated_iso": datetime.now(timezone.utc).isoformat(),
+            "last_post_at": last_post_dt.isoformat() if last_post_dt else None,
+            "stale_days": stale_days,
             "period": period_str(posts),
             "total_raw": stats.get("total", len(all_feed)), "total_kept": len(posts),
             "kept_pct": round(100 * len(posts) / max(stats.get("total", len(all_feed)), 1), 1),
@@ -1466,6 +1538,17 @@ def main():
         except Exception as e:
             log.error(f"УМП-вариант не собран: {e}")
 
+    # ── «Благополучие подростков» — скрытая страница за паролем (см. dashboard_template.py) ──
+    try:
+        teen_data = build_teen_wellbeing(all_feed, datetime.now(timezone.utc))
+        (OUT.parent / TEEN_DATA_FILENAME).write_text(
+            json.dumps(teen_data, ensure_ascii=False), encoding="utf-8")
+        (OUT.parent / TEEN_PAGE_FILENAME).write_text(TEEN_WELLBEING_TEMPLATE, encoding="utf-8")
+        n_tw = len(teen_data["suicide"]) + len(teen_data["missing_children"]) + len(teen_data["bullying"])
+        log.info(f"Благополучие подростков: {OUT.parent / TEEN_PAGE_FILENAME} — сигналов: {n_tw}")
+    except Exception as e:
+        log.error(f"Благополучие подростков не собрано: {e}")
+
     # ── ГОРОД (Акимат) → index.html ──
     city = _attach(build(posts, all_feed, stats), cv_list, tops, scraper)
     city["has_ump"] = has_ump
@@ -1475,7 +1558,9 @@ def main():
              if city["problems"] else "нет проблем")
 
 
-from dashboard_template import HTML_TEMPLATE  # noqa: E402
+from dashboard_template import (  # noqa: E402
+    HTML_TEMPLATE, TEEN_WELLBEING_TEMPLATE, TEEN_DATA_FILENAME, TEEN_PAGE_FILENAME,
+)
 
 if __name__ == "__main__":
     main()
