@@ -152,7 +152,7 @@ DEPT = {
     "Образование": "Управление образования",
     "Госуслуги и бюрократия": "Аппарат акима / ЦОН / Open Almaty",
     "Цены и социальные вопросы": "Управление предпринимательства / соцзащиты",
-    "Прочее": "Профильное управление",
+    "Прочее": "Профильное ведомство / пресс-служба акимата",
 }
 RECO = {
     "Дороги и транспорт": "Картировать аварийные участки и заторы из обращений, дать публичный график ремонта и разъяснения по маршрутам.",
@@ -167,7 +167,7 @@ RECO = {
     "Образование": "Ответить по конкретным школам/детсадам, разъяснить ситуацию родителям.",
     "Госуслуги и бюрократия": "Устранить сбои в Open Almaty/ЦОН, упростить процедуры, ответить адресно.",
     "Цены и социальные вопросы": "Разъяснить тарифы/цены, дать информацию о мерах поддержки.",
-    "Прочее": "Мониторинг и подготовка разъяснительной коммуникации.",
+    "Прочее": "Отследить резонанс, при необходимости скоординировать публичную реакцию с профильным ведомством/пресс-службой.",
 }
 DRAFT = {
     "Дороги и транспорт": "Акимат фиксирует обращения по дорожной ситуации{d} и аварийным участкам. Профильное управление проверяет; по итогам будет опубликован план мер и сроки. Просим направлять конкретные адреса.",
@@ -284,6 +284,91 @@ def _pick_opinions(items, limit=2):
     if not picks:
         picks.append(max(items, key=engagement))
     return [sample(p) for p in picks[:limit]]
+
+
+def _alarm_entry(category, items, now, label=None):
+    """Собирает одну карточку «Сигналов тревоги» из уже отфильтрованного (свежего)
+    списка постов по теме — та же форма данных, что и у problems[i]."""
+    n = len(items)
+
+    def _sample_key(x):
+        d = parse_dt(x["created_at"]); age = (now - d).days if d else 999
+        return (1 if age <= 7 else 0, x["severity"], engagement(x))
+
+    items_sorted = sorted(items, key=_sample_key, reverse=True)
+    avg_sev = sum(i["severity"] for i in items) / n
+    eng = sum(engagement(i) for i in items)
+    recent = sum(1 for i in items if (d := parse_dt(i["created_at"])) and (now - d).days <= 3)
+    prev = sum(1 for i in items if (d := parse_dt(i["created_at"])) and 3 < (now - d).days <= 6)
+    ns = neg_share(items)
+    district = Counter(i["district"] for i in items if i["district"]).most_common(1)
+
+    seen, samples = set(), []
+    for i in items_sorted:
+        key = " ".join((i.get("text", "")[:70]).lower().split())
+        if key in seen:
+            continue
+        seen.add(key)
+        samples.append(sample(i))
+        if len(samples) >= 12:
+            break
+
+    # Резонанс = прежняя формула (объём × острота × негатив), плюс охват — иначе
+    # одиночная виральная история (мало постов, но огромный охват) никогда не
+    # обгонит категорию с постоянным потоком мелких жалоб.
+    resonance = (ns + 0.1) * (recent + 1) * max(avg_sev, 1) + (eng ** 0.5) * 0.8
+
+    return {
+        "category": label or category, "count": n, "avg_severity": round(avg_sev, 1), "neg_share": ns,
+        "engagement": eng, "recent": recent, "prev": prev,
+        "district": district[0][0] if district else "",
+        "department": DEPT.get(category, DEPT["Прочее"]), "recommendation": RECO.get(category, RECO["Прочее"]),
+        "draft": DRAFT.get(category, DRAFT["Прочее"]), "samples": samples, "resonance": resonance,
+    }
+
+
+def build_alarms(posts, now, top_n=4):
+    """«Сигналы тревоги» — то, что реально волнует жителей ПРЯМО СЕЙЧАС, а не только
+    формальные городские категории («акимат обрати внимание»). Раньше сюда попадали
+    только посты категорий из CATS (ЖКХ, дороги и т.п.) — резонансные истории вне
+    этого списка (бытовое насилие, живодёрство, скандалы вокруг брендов и т.п.,
+    категория "Прочее") никогда не всплывали. Плюс раньше выборка шла по ВСЕМ
+    постам категории без ограничения по дате — если в категории давно не было
+    свежих постов, наверх лезли старые (месячной давности) случаи. Теперь строго
+    на свежем окне (7/14/30 дней), и «Прочее» разбирается по темам, а не одним
+    комом — каждая резонансная история становится своей карточкой."""
+    def _fresh(days):
+        return [p for p in posts
+                if (d := parse_dt(p.get("created_at", ""))) and 0 <= (now - d).days <= days
+                and not is_positive_post(p)]
+    pool = _fresh(7) or _fresh(14) or _fresh(30)
+    if not pool:
+        return []
+
+    by_cat = defaultdict(list)
+    for p in pool:
+        by_cat[p["category"]].append(p)
+
+    candidates = []
+    # 1) устойчивые городские категории — как и раньше, но только на свежем окне
+    for cat, items in by_cat.items():
+        if cat == "Прочее" or len(items) < 2:
+            continue
+        candidates.append(_alarm_entry(cat, items, now))
+
+    # 2) резонансные истории вне стандартных категорий — группируем по теме
+    #    (короткая фраза, которую ИИ уже извлёк на пост), а не в одну общую "Прочее".
+    #    Одиночный пост тоже считается — реальная виральность не требует повторов.
+    by_theme = defaultdict(list)
+    for p in by_cat.get("Прочее", []):
+        key = (p.get("theme") or "").strip().lower() or " ".join((p.get("text", "")[:60]).lower().split())
+        by_theme[key].append(p)
+    for items in by_theme.values():
+        label = (items[0].get("theme") or "").strip() or items[0].get("text", "")[:60]
+        candidates.append(_alarm_entry("Прочее", items, now, label=label))
+
+    candidates.sort(key=lambda a: a["resonance"], reverse=True)
+    return candidates[:top_n]
 
 
 def daily_spark(items, days_back=8, end=None):
@@ -724,24 +809,7 @@ def build(posts, all_feed, stats):
             "draft": DRAFT.get(cat, DRAFT["Прочее"]), "samples": [sample(i) for i in items_sorted[:3]],
         })
     problems.sort(key=lambda x: x["score"], reverse=True)
-    alarms = sorted(problems, key=lambda p: (p["neg_share"] + 0.1) * (p["recent"] + 1) * p["avg_severity"],
-                    reverse=True)[:4]
-
-    # Слайдер «Сигналы тревоги»: до 12 свежих/острых постов по каждой теме (без дублей).
-    def _alarm_key(x):
-        d = parse_dt(x["created_at"]); age = (now - d).days if d else 999
-        return (1 if age <= 7 else 0, x["severity"], engagement(x))
-    for a in alarms:
-        seen, rich = set(), []
-        for i in sorted(cats.get(a["category"], []), key=_alarm_key, reverse=True):
-            key = " ".join((i.get("text", "")[:70]).lower().split())
-            if key in seen:
-                continue
-            seen.add(key)
-            rich.append(sample(i))
-            if len(rich) >= 12:
-                break
-        a["samples"] = rich
+    alarms = build_alarms(posts, now)
 
     # ── СВЕЖИЕ РЕЗОНАНСНЫЕ СИГНАЛЫ (раздел «Сигналы тревоги») ───────────────────
     # Только свежие посты — старые (>недели) уже отработаны службами.
@@ -1358,6 +1426,10 @@ def _attach(data, cv, tops, scraper):
     return data
 
 
+# Дашборд «Молодёжь» (УМП) временно не нужен — на дашборде остаётся только «Город».
+UMP_ENABLED = False
+
+
 def main():
     posts, all_feed, stats = load()
     if not posts:
@@ -1369,26 +1441,30 @@ def main():
     tops = load_top_solutions()
     OUT.parent.mkdir(parents=True, exist_ok=True)
 
-    # ── УМП (молодёжь / вузы) сначала — чтобы «Город» знал, показывать ли вкладку ──
+    # ── УМП (молодёжь / вузы) — деактивировано по запросу, нужен только «Город».
+    # Чтобы включить обратно: поставь UMP_ENABLED = True. Вкладка «Молодёжь» на
+    # дашборде появится сама — её видимость уже завязана на has_ump, больше
+    # ничего менять не нужно.
     has_ump = False
-    try:
-        llm_map = _ump_llm_filter(list(posts) + list(all_feed))   # локальная Qwen + кэш
-        youth = _recat_youth(posts, llm_map)     # молодёжные посты в СВОЕЙ таксономии
-        yfeed = _recat_youth(all_feed, llm_map) or youth
-        if len(youth) >= 15:
-            has_ump = True
-            cv_y = _youth_cv(cv_list)
-            tops_y = [t for t in tops if _YOUTH_RX.search(t.get("title", "") + " " + t.get("category", ""))]
-            ump = _attach(build(youth, yfeed, stats), cv_y, tops_y, scraper)
-            # Помесячные сводки строятся по городскому корпусу — для УМП не показываем.
-            ump["month_reviews"] = []
-            ump["has_ump"] = True
-            (OUT.parent / "ump.html").write_text(_render(ump, geo, "ump"), encoding="utf-8")
-            log.info(f"Дашборд (УМП): {OUT.parent / 'ump.html'} — постов молодёжи: {len(youth)}")
-        else:
-            log.warning(f"УМП: молодёжных постов мало ({len(youth)}) — ump.html пропущен")
-    except Exception as e:
-        log.error(f"УМП-вариант не собран: {e}")
+    if UMP_ENABLED:
+        try:
+            llm_map = _ump_llm_filter(list(posts) + list(all_feed))   # локальная Qwen + кэш
+            youth = _recat_youth(posts, llm_map)     # молодёжные посты в СВОЕЙ таксономии
+            yfeed = _recat_youth(all_feed, llm_map) or youth
+            if len(youth) >= 15:
+                has_ump = True
+                cv_y = _youth_cv(cv_list)
+                tops_y = [t for t in tops if _YOUTH_RX.search(t.get("title", "") + " " + t.get("category", ""))]
+                ump = _attach(build(youth, yfeed, stats), cv_y, tops_y, scraper)
+                # Помесячные сводки строятся по городскому корпусу — для УМП не показываем.
+                ump["month_reviews"] = []
+                ump["has_ump"] = True
+                (OUT.parent / "ump.html").write_text(_render(ump, geo, "ump"), encoding="utf-8")
+                log.info(f"Дашборд (УМП): {OUT.parent / 'ump.html'} — постов молодёжи: {len(youth)}")
+            else:
+                log.warning(f"УМП: молодёжных постов мало ({len(youth)}) — ump.html пропущен")
+        except Exception as e:
+            log.error(f"УМП-вариант не собран: {e}")
 
     # ── ГОРОД (Акимат) → index.html ──
     city = _attach(build(posts, all_feed, stats), cv_list, tops, scraper)
