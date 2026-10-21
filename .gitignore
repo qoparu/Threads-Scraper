@@ -46,3 +46,7 @@ Thumbs.db
 *.log
 lastscript.js
 _bp.txt
+
+# ── Разовые ресёрчи/отчёты (deep-research), не относятся к коду приложения ──
+research_notes/
+reports/
